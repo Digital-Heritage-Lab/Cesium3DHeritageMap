@@ -7,7 +7,7 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
     imageryProvider: new Cesium.OpenStreetMapImageryProvider({
         url: 'https://a.tile.openstreetmap.org/'
     }),
-    baseLayerPicker: true, // Disable BaseLayerPicker
+    baseLayerPicker: false, // Disable BaseLayerPicker
     sceneModePicker: false // Disable scene mode picker
 });
 
