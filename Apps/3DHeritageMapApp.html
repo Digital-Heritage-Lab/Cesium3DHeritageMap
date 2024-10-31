@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+    <title>Cesium3D Heritage Map</title>
+    <!-- Including Cesium JS and CSS files -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.83/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.83/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="3DHeritageStyles.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Options box -->
+    <div id="optionsBox">
+        <h2>Options</h2>
+        <label>
+            <input type="radio" name="option" id="allMarkers" checked />
+            All
+        </label>
+        <label>
+            <input type="radio" name="option" id="3dmodel" />
+            3D Model
+        </label>
+        <label>
+            <input type="radio" name="option" id="photo" />
+            Foto
+        </label>
+        <label>
+            <input type="radio" name="option" id="wikipedia" />
+            Wikipedia
+        </label>
+        <label>
+            <input type="radio" name="option" id="openstreetmap" />
+            OpenStreetMap
+        </label>
+        <button id="closeOptionsBox">X</button>
+    </div>
+    <!-- Button to open options box -->
+    <button id="openOptionsBox"><img src="Images/menu.png" alt="menuicon"></button>
+
+    <!-- Cesium Container -->
+    <div id="cesiumContainer"></div>
+
+    <!-- Info box -->
+    <div id="infoBox">
+        <button id="closeInfoBox">X</button>
+        <h2>Information</h2>
+        <div id="infoContent"></div>
+    </div>
+    <!-- Button to open info box -->
+    <button id="openInfoBox"><img src="Images/infoicon.png" alt="infoicon"></button>
+    <script src="3DHeritageScripts.js"></script>
+</body>
+
+</html>
