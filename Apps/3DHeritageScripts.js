@@ -167,15 +167,76 @@ async function loadGeoJson() {
 // Load GeoJSON data
 loadGeoJson();
 
-// Define the asset IDs for 3D Tileset
-const assetIds = [96188, 2255119 /* Add other asset IDs here */];
+/**
+ * Loads 3D asset data from 'assets.json' and monument data from 
+ * 'denkmaeler.json'. It adds a default 3D Tileset using a fixed 
+ * asset ID and appends corresponding assets to the Cesium viewer 
+ * based on matching monument numbers. You can add more assets to
+ * assets.json and they will be displayed on the map if they match
+ * a monument number in denkmaeler.json.
+ */
+const assetsUrl = 'Data/assets.json'; // First file
+const denkmaelerUrl = 'Data/denkmaeler.json'; // Second file
 
-// Add 3D Tilesets to the viewer
-assetIds.forEach((id) => {
-    viewer.scene.primitives.add(new Cesium.Cesium3DTileset({
-        url: Cesium.IonResource.fromAssetId(id),
-    }));
-});
+// Load the first JSON file
+fetch(assetsUrl)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network error: ' + response.statusText);
+        }
+        return response.json();
+    })
+    .then(data => {
+        const assets = data.assets; // Assets are defined here
+
+        // Load the second JSON file
+        return fetch(denkmaelerUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(denkmaelerData => {
+                const features = denkmaelerData.features; 
+                if (!Array.isArray(features)) {
+                    throw new Error('Features is not an array');
+                }
+
+                const denkmaelerMap = {};
+                features.forEach(item => {
+                    if (item.properties && item.properties.denkmallistennummer) {
+                        const denkmallistennummer = item.properties.denkmallistennummer;
+                        denkmaelerMap[denkmallistennummer] = item; 
+                    }
+                });
+
+                // Add tileset with fixed ID
+                const defaultTileset = new Cesium.Cesium3DTileset({
+                    url: Cesium.IonResource.fromAssetId(96188),
+                });
+                viewer.scene.primitives.add(defaultTileset);
+
+                // Check elements from the assets array and add them if there is a match
+                assets.forEach(asset => {
+                    const denkmallistennummer = asset.denkmallistennummer; 
+
+                    // If denkmallistennummer exists and there is a match, add it
+                    if (denkmallistennummer && denkmaelerMap[denkmallistennummer]) {
+                        const assetUrl = Cesium.IonResource.fromAssetId(asset.id); // Use asset ID
+                        const tileset = new Cesium.Cesium3DTileset({
+                            url: assetUrl,
+                        });
+                        viewer.scene.primitives.add(tileset);
+                    }
+                });
+            });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
+
 
 // Add event listener for click events on the map
 viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(movement) {
