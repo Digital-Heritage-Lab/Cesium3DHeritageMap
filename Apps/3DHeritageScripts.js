@@ -64,21 +64,23 @@ function updateEntities(radioId) {
     });
 }
 
-// Set new home location for the Home button
-const newHomeLocation = new Cesium.Cartesian3(4049031.6615590854, 494694.75900322065, 4935825.152304239);
+// Köln lon & lat
+const cologneLocation = Cesium.Cartesian3.fromDegrees(6.9603, 50.7375, 25000);
 
-// Add click event for the Home button
-viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function () {
+// Code for going Cologne when the home button is clicked
+viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) {
+    e.cancel = true; // Cancel the default action
     viewer.camera.flyTo({
-        destination: newHomeLocation,
+        destination: cologneLocation,
         orientation: {
-            heading: Cesium.Math.toRadians(6.283185307179586),
-            pitch: Cesium.Math.toRadians(-1.5685397851648877),
-            roll: 0
+            heading: Cesium.Math.toRadians(0.0), // The direction of the camera
+            pitch: Cesium.Math.toRadians(-45.0), 
+            roll: 0.0
         },
-        duration: 3 // Animation duration
+        duration: 3 // animation duration
     });
 });
+
 
 /**
  * Function to retrieve URL parameters.
