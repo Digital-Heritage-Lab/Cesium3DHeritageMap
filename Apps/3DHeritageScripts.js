@@ -1,6 +1,9 @@
 // Cesium Ion access token
 Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMjhiN2RhOC1lYThlLTQ3NGEtYWQ3NC05YjRmOTI5M2M0OWEiLCJpZCI6NzgzODEsImlhdCI6MTcxMDc5ODQ0MH0.nuQD0pwTIy_aHKIqEGLzrhxCCCelkCHyNeJURm3v-Q8";
 
+// Köln lon & lat
+const cologneLocation = Cesium.Cartesian3.fromDegrees(6.9603, 50.7375, 25000);
+
 // Create the Cesium Viewer
 const viewer = new Cesium.Viewer("cesiumContainer", {
     terrainProvider: Cesium.createWorldTerrain(),
@@ -11,11 +14,36 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
     sceneModePicker: false // Disable scene mode picker
 });
 
+
+viewer.camera.setView({
+    destination: cologneLocation,
+    orientation: {
+        heading: Cesium.Math.toRadians(0.0), // The direction of the camera
+        pitch: Cesium.Math.toRadians(-45.0),
+        roll: 0.0
+    }
+});
+
+
+// slower
+/*
+viewer.camera.flyTo({
+    destination: cologneLocation,
+    orientation: {
+        heading: Cesium.Math.toRadians(0.0), // The direction of the camera
+        pitch: Cesium.Math.toRadians(-45.0),
+        roll: 0.0
+    },
+    duration: 3 // animation duration
+});
+*/
+
 // Enable 3D lighting
 viewer.scene.globe.enableLighting = true;
 
 // Define radio buttons for different entity types
 const radios = {
+    viewer3d: document.getElementById('viewer3d'),
     model3d: document.getElementById('3dmodel'),
     photo: document.getElementById('photo'),
     wikipedia: document.getElementById('wikipedia'),
@@ -41,6 +69,9 @@ function updateEntities(radioId) {
         let isVisible = false;
 
         switch (radioId) {
+            case 'viewer3d':
+                isVisible = entity.properties.viewer3d && entity.properties.viewer3d.getValue() === 'ja';
+                break;
             case 'model3d':
                 isVisible = entity.properties.model3d && entity.properties.model3d.getValue() === 'ja';
                 break;
@@ -64,8 +95,7 @@ function updateEntities(radioId) {
     });
 }
 
-// Köln lon & lat
-const cologneLocation = Cesium.Cartesian3.fromDegrees(6.9603, 50.7375, 25000);
+
 
 // Code for going Cologne when the home button is clicked
 viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) {
@@ -74,7 +104,7 @@ viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) 
         destination: cologneLocation,
         orientation: {
             heading: Cesium.Math.toRadians(0.0), // The direction of the camera
-            pitch: Cesium.Math.toRadians(-45.0), 
+            pitch: Cesium.Math.toRadians(-45.0),
             roll: 0.0
         },
         duration: 3 // animation duration
@@ -82,28 +112,14 @@ viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) 
 });
 
 
-/**
- * Function to retrieve URL parameters.
- * @param {string} name - The name of the parameter to retrieve.
- * @returns {string} - The value of the parameter.
- */
-function getUrlParameter(name) {
-    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-    var results = regex.exec(location.search);
-    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-}
 
-// Get latitude and longitude parameters
-var lat = getUrlParameter('lat');
-var lon = getUrlParameter('lon');
 
 /**
- * Function to load GeoJSON data and add it to the viewer.
+ * Function to load GeoJSON data and add it to the viewer. *
  */
 async function loadGeoJson() {
     try {
-        const dataSource = await Cesium.GeoJsonDataSource.load('Data/denkmaeler.json');
+        const dataSource = await Cesium.GeoJsonDataSource.load('https://opendem.info/cgi-bin/getDenkmal.py');
         await viewer.dataSources.add(dataSource);
 
         const entities = dataSource.entities.values;
@@ -135,48 +151,82 @@ async function loadGeoJson() {
                 });
 
                 // Adjust label position based on zoom level
+
                 viewer.scene.preRender.addEventListener(function () {
+
                     var zoomThreshold = 5000;
                     var currentZoom = viewer.camera.zoomFactor;
-                    entity.billboard.pixelOffset = currentZoom < zoomThreshold 
-                        ? new Cesium.Cartesian2(0, -32) 
+                    entity.billboard.pixelOffset = currentZoom < zoomThreshold
+                        ? new Cesium.Cartesian2(0, -32)
                         : new Cesium.Cartesian2(0, -16);
+
                 });
+
             }
         });
-        
-        // zoom to lat lon parameters
-        // example: ?lon=6.947531&lat=50.926031  --> Diana mit springender Antilope
-        if (lat && lon) {
-            viewer.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(parseFloat(lon), parseFloat(lat - 0.001), 200),
-                orientation: {
-                    heading: Cesium.Math.toRadians(0.0),
-                    pitch: Cesium.Math.toRadians(-45.0),
-                    roll: 0
-                }
-            });
-        } else {
-            viewer.flyTo(dataSource); // Otherwise, fly to the data source
-        }
+
+
     } catch (error) {
         console.error(error);
     }
 }
 
 // Load GeoJSON data
-loadGeoJson();
+// Wait till scene is ready using scene.globe.tileLoadProgressEvent
+viewer.scene.globe.tileLoadProgressEvent.addEventListener((count) => {
+    if (count === 0) {
+        console.log("Globe is fully loaded");
+        loadGeoJson();
+    }
+});
+
+
+// use html Parameters if available and zoom to location
 
 /**
- * Loads 3D asset data from 'assets.json' and monument data from 
- * 'denkmaeler.json'. It adds a default 3D Tileset using a fixed 
- * asset ID and appends corresponding assets to the Cesium viewer 
+ * Function to retrieve URL parameters.
+ * @param {string} name - The name of the parameter to retrieve.
+ * @returns {string} - The value of the parameter.
+ */
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+}
+
+// Get latitude and longitude parameters
+var lat = getUrlParameter('lat');
+var lon = getUrlParameter('lon');
+
+// zoom to lat lon parameters
+// example: ?lon=6.947531&lat=50.926031  --> Diana mit springender Antilope
+if (lat && lon) {
+    viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(parseFloat(lon), parseFloat(lat - 0.001), 200),
+        orientation: {
+            heading: Cesium.Math.toRadians(0.0),
+            pitch: Cesium.Math.toRadians(-45.0),
+            roll: 0
+        },
+        duration: 3 // animation duration
+    });
+
+}
+
+
+
+/**
+ * Loads 3D asset data from 'assets.json' and monument data from
+ * 'denkmaeler.json'. It adds a default 3D Tileset using a fixed
+ * asset ID and appends corresponding assets to the Cesium viewer
  * based on matching monument numbers. You can add more assets to
  * assets.json and they will be displayed on the map if they match
  * a monument number in denkmaeler.json.
  */
 const assetsUrl = 'Data/assets.json'; // First file
-const denkmaelerUrl = 'Data/denkmaeler.json'; // Second file
+//const denkmaelerUrl = 'Data/denkmaeler.json'; // Second file
+const denkmaelerUrl = 'https://opendem.info/cgi-bin/getDenkmal.py';
 
 // Load the first JSON file
 fetch(assetsUrl)
@@ -187,6 +237,8 @@ fetch(assetsUrl)
         return response.json();
     })
     .then(data => {
+
+
         const assets = data.assets; // Assets are defined here
 
         // Load the second JSON file
@@ -198,7 +250,7 @@ fetch(assetsUrl)
                 return response.json();
             })
             .then(denkmaelerData => {
-                const features = denkmaelerData.features; 
+                const features = denkmaelerData.features;
                 if (!Array.isArray(features)) {
                     throw new Error('Features is not an array');
                 }
@@ -207,7 +259,7 @@ fetch(assetsUrl)
                 features.forEach(item => {
                     if (item.properties && item.properties.denkmallistennummer) {
                         const denkmallistennummer = item.properties.denkmallistennummer;
-                        denkmaelerMap[denkmallistennummer] = item; 
+                        denkmaelerMap[denkmallistennummer] = item;
                     }
                 });
 
@@ -219,7 +271,7 @@ fetch(assetsUrl)
 
                 // Check elements from the assets array and add them if there is a match
                 assets.forEach(asset => {
-                    const denkmallistennummer = asset.denkmallistennummer; 
+                    const denkmallistennummer = asset.denkmallistennummer;
 
                     // If denkmallistennummer exists and there is a match, add it
                     if (denkmallistennummer && denkmaelerMap[denkmallistennummer]) {
@@ -255,7 +307,7 @@ viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(movement) {
  */
 function showEntityInfo(entity) {
     const infoBox = document.getElementById('infoContent');
-    
+
     // Clear existing content
     infoBox.innerHTML = '';
 
@@ -294,34 +346,34 @@ function showEntityInfo(entity) {
 
 
 
-    // Move the camera to the marker on double-click
-    viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
-        const pickedObject = viewer.scene.pick(movement.position);
-        if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
-            const entity = pickedObject.id;
-            const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
+// Move the camera to the marker on double-click
+viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
+    const pickedObject = viewer.scene.pick(movement.position);
+    if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+        const entity = pickedObject.id;
+        const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
 
-            // Height offset to position the camera above the marker
-            const heightOffset = 200; // Marker'ın üstünde olmak için
+        // Height offset to position the camera above the marker
+        const heightOffset = 200; // Marker'ın üstünde olmak için
 
-            // Position the camera behind the marker
-            const cameraPosition = new Cesium.Cartesian3(
-                markerPosition.x + 400, // Move in the X direction
-                markerPosition.y + 50,  // Move in the Y direction
-                markerPosition.z + heightOffset // Move up
-            );
+        // Position the camera behind the marker
+        const cameraPosition = new Cesium.Cartesian3(
+            markerPosition.x + 400, // Move in the X direction
+            markerPosition.y + 50,  // Move in the Y direction
+            markerPosition.z + heightOffset // Move up
+        );
 
-            viewer.camera.flyTo({
-                destination: cameraPosition,
-                orientation: {
-                    heading: Cesium.Math.toRadians(0.0), // Camera direction
-                    pitch: Cesium.Math.toRadians(-60.0), // Downward viewing angle
-                    roll: 0.0
-                },
-                duration: 3 // Animation duration
-            });
-        }
-    }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+        viewer.camera.flyTo({
+            destination: cameraPosition,
+            orientation: {
+                heading: Cesium.Math.toRadians(0.0), // Camera direction
+                pitch: Cesium.Math.toRadians(-60.0), // Downward viewing angle
+                roll: 0.0
+            },
+            duration: 3 // Animation duration
+        });
+    }
+}, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
 
 
