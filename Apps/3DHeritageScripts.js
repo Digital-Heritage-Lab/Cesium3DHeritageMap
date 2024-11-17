@@ -294,7 +294,7 @@ function showEntityInfo(entity) {
 
 
 
-    // Move the camera to the marker on double-clic
+    // Move the camera to the marker on double-click
     viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
         const pickedObject = viewer.scene.pick(movement.position);
         if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
