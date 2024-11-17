@@ -402,3 +402,20 @@ document.getElementById('openOptionsBox').onclick = () => {
     document.getElementById('optionsBox').style.display = 'block';
     document.getElementById('openOptionsBox').style.display = 'none';
 };
+
+
+// Loading icon element
+const loadingScreen = document.getElementById('loadingScreen');
+
+// Hide loading icon after the map uploaded
+viewer.scene.globe.tileLoadProgressEvent.addEventListener((count) => {
+    if (count === 0) {
+        console.log('Tüm veriler yüklendi');
+        loadingScreen.style.display = 'none'; // Hide
+    }
+});
+
+// Show loading icon while the page is loading
+window.addEventListener('load', () => {
+    loadingScreen.style.display = 'flex';
+});
