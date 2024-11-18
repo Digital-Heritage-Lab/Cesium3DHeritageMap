@@ -66,6 +66,28 @@
      margin-bottom: 10px;
  }
 
+ #dataBaseButton {
+    position: absolute;
+     top: 60px;
+     left: 10px;
+     cursor: pointer;
+     background-color: rgba(42, 42, 42, 0.8);
+     border: none;
+     color: white;
+     border-radius: 4px;
+     padding: 5px 5px;
+     z-index: 1;
+}
+
+#dataBaseButton:hover {
+    background-color: rgb(37, 150, 190);
+     border-style: solid;
+     border: 2px;
+     border-color: white;
+}
+
+
+
  #infoBox {
      position: absolute;
      top: 50px;

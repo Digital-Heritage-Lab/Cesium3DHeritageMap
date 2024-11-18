@@ -392,12 +392,18 @@ document.getElementById('openInfoBox').onclick = () => {
 document.getElementById('closeOptionsBox').onclick = () => {
     document.getElementById('optionsBox').style.display = 'none';
     document.getElementById('openOptionsBox').style.display = 'block';
+
+    // Show the dataBaseButton when infoBox is closed
+    document.getElementById('dataBaseButton').style.display = 'block';
 };
 
 // Add event listener for the open options box button
 document.getElementById('openOptionsBox').onclick = () => {
     document.getElementById('optionsBox').style.display = 'block';
     document.getElementById('openOptionsBox').style.display = 'none';
+
+     // Hide the dataBaseButton when infoBox is opened
+     document.getElementById('dataBaseButton').style.display = 'none';
 };
 
 
