@@ -117,19 +117,22 @@ viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) 
 /**
  * Function to load GeoJSON data and add it to the viewer. *
  */
+let markersInitialized = false; // Markers will only be loaded once
+
 async function loadGeoJson() {
     try {
+        if (markersInitialized) return; // If markers are already loaded, do not load again
+
         const dataSource = await Cesium.GeoJsonDataSource.load('https://opendem.info/cgi-bin/getDenkmal.py');
         await viewer.dataSources.add(dataSource);
 
         const entities = dataSource.entities.values;
 
-        // Iterate over entities and set their properties
         entities.forEach(entity => {
             if (entity.position) {
                 const name = entity.properties.kurzbezeichnung ? entity.properties.kurzbezeichnung.getValue() : '';
 
-                // Set billboard graphics
+                // Define the marker
                 entity.billboard = new Cesium.BillboardGraphics({
                     image: 'Images/marker.png',
                     width: 32,
@@ -137,7 +140,7 @@ async function loadGeoJson() {
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
                 });
 
-                // Set label graphics
+                // Define the marker label
                 entity.label = new Cesium.LabelGraphics({
                     text: name,
                     font: '11pt sans-serif',
@@ -149,27 +152,21 @@ async function loadGeoJson() {
                     pixelOffset: new Cesium.Cartesian2(0, -32),
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
                 });
-
-                // Adjust label position based on zoom level
-
-                viewer.scene.preRender.addEventListener(function () {
-
-                    var zoomThreshold = 5000;
-                    var currentZoom = viewer.camera.zoomFactor;
-                    entity.billboard.pixelOffset = currentZoom < zoomThreshold
-                        ? new Cesium.Cartesian2(0, -32)
-                        : new Cesium.Cartesian2(0, -16);
-
-                });
-
             }
         });
 
+        // Mark that markers are loaded
+        markersInitialized = true;
+
+        // Apply the selected filter initially
+        const selectedRadio = Object.keys(radios).find(key => radios[key].checked);
+        updateEntities(selectedRadio);
 
     } catch (error) {
         console.error(error);
     }
 }
+
 
 // Load GeoJSON data
 // Wait till scene is ready using scene.globe.tileLoadProgressEvent
