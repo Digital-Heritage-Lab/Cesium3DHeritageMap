@@ -14,7 +14,6 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
     sceneModePicker: false // Disable scene mode picker
 });
 
-
 viewer.camera.setView({
     destination: cologneLocation,
     orientation: {
@@ -23,20 +22,6 @@ viewer.camera.setView({
         roll: 0.0
     }
 });
-
-
-// slower
-/*
-viewer.camera.flyTo({
-    destination: cologneLocation,
-    orientation: {
-        heading: Cesium.Math.toRadians(0.0), // The direction of the camera
-        pitch: Cesium.Math.toRadians(-45.0),
-        roll: 0.0
-    },
-    duration: 3 // animation duration
-});
-*/
 
 // Enable 3D lighting
 viewer.scene.globe.enableLighting = true;
@@ -95,25 +80,6 @@ function updateEntities(radioId) {
     });
 }
 
-
-
-// Code for going Cologne when the home button is clicked
-viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function (e) {
-    e.cancel = true; // Cancel the default action
-    viewer.camera.flyTo({
-        destination: cologneLocation,
-        orientation: {
-            heading: Cesium.Math.toRadians(0.0), // The direction of the camera
-            pitch: Cesium.Math.toRadians(-45.0),
-            roll: 0.0
-        },
-        duration: 3 // animation duration
-    });
-});
-
-
-
-
 /**
  * Function to load GeoJSON data and add it to the viewer. *
  */
@@ -127,6 +93,10 @@ async function loadGeoJson() {
         await viewer.dataSources.add(dataSource);
 
         const entities = dataSource.entities.values;
+
+        // Story Map Box element
+        const storyMapBox = document.getElementById('storyMapBox');
+        storyMapBox.innerHTML = '<h2>Story Mapping</h2>'; // Reset the content
 
         entities.forEach(entity => {
             if (entity.position) {
@@ -152,6 +122,40 @@ async function loadGeoJson() {
                     pixelOffset: new Cesium.Cartesian2(0, -32),
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
                 });
+
+                // If the viewer3d property is "ja", append its kurzbezeichnung to the story map box
+                if (entity.properties.viewer3d && entity.properties.viewer3d.getValue() === 'ja') {
+                    const kurzbezeichnung = entity.properties.kurzbezeichnung ? entity.properties.kurzbezeichnung.getValue() : 'No name available';
+                    const pElement = document.createElement('p');
+                    pElement.textContent = kurzbezeichnung;
+
+                    // Add click event to each name that moves the camera to the entity's position
+                    pElement.addEventListener('click', () => {
+                        const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
+
+                        // Height offset to position the camera above the marker
+                        const heightOffset = 200; // Marker'ın üstünde olmak için
+
+                        // Position the camera behind the marker
+                        const cameraPosition = new Cesium.Cartesian3(
+                            markerPosition.x + 400, // Move in the X direction
+                            markerPosition.y + 50,  // Move in the Y direction
+                            markerPosition.z + heightOffset // Move up
+                        );
+
+                        viewer.camera.flyTo({
+                            destination: cameraPosition,
+                            orientation: {
+                                heading: Cesium.Math.toRadians(0.0), // Camera direction
+                                pitch: Cesium.Math.toRadians(-60.0), // Downward viewing angle
+                                roll: 0.0
+                            },
+                            duration: 3 // Animation duration
+                        });
+                    });
+
+                    storyMapBox.appendChild(pElement); // Add to Story Map Box
+                }
             }
         });
 
@@ -166,6 +170,7 @@ async function loadGeoJson() {
         console.error(error);
     }
 }
+
 
 
 // Load GeoJSON data
@@ -393,8 +398,11 @@ document.getElementById('closeOptionsBox').onclick = () => {
     document.getElementById('optionsBox').style.display = 'none';
     document.getElementById('openOptionsBox').style.display = 'block';
 
-    // Show the dataBaseButton when infoBox is closed
+    // Show the dataBaseButton when optionsBox is closed
     document.getElementById('dataBaseButton').style.display = 'block';
+
+    // Hide the storyMapBox when optionsBox is closed
+    document.getElementById('storyMapBox').style.display = 'none';
 };
 
 // Add event listener for the open options box button
@@ -402,9 +410,13 @@ document.getElementById('openOptionsBox').onclick = () => {
     document.getElementById('optionsBox').style.display = 'block';
     document.getElementById('openOptionsBox').style.display = 'none';
 
-     // Hide the dataBaseButton when infoBox is opened
-     document.getElementById('dataBaseButton').style.display = 'none';
+    // Hide the dataBaseButton when optionsBox is opened
+    document.getElementById('dataBaseButton').style.display = 'none';
+
+    // Show the storyMapBox when optionsBox is opened
+    document.getElementById('storyMapBox').style.display = 'block';
 };
+
 
 
 // Loading icon element
