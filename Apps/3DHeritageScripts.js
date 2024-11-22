@@ -11,7 +11,8 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
         url: 'https://a.tile.openstreetmap.org/'
     }),
     baseLayerPicker: false, // Disable BaseLayerPicker
-    sceneModePicker: false // Disable scene mode picker
+    sceneModePicker: false, // Disable scene mode picker
+    navigationHelpButton: false // Disable navigation help button
 });
 
 viewer.camera.setView({
