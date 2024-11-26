@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const jsonUrl = '../Apps/Data/denkmaeler.json'; // JSON dosyanızın URL'sini buraya ekleyin
+    const jsonUrl = 'https://opendem.info/cgi-bin/getDenkmal.py'; // JSON dosyanızın URL'sini buraya ekleyin
     let data = [];
     let sortOrder = {
         denkmallistennummer: 'asc',
@@ -8,13 +8,21 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     fetch(jsonUrl)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(json => {
             data = json.features;
             // İlk başta "denkmallistennummer" değerine göre sıralama
             data.sort((a, b) => sortByDenkmallistennummer(a, b, 'asc'));
             populateCategories(data);
             displayResults(data);
+        })
+        .catch(error => {
+            console.error('Veri alınırken bir hata oluştu:', error);
         });
 
     document.getElementById('search-button').addEventListener('click', () => {
