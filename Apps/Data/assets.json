@@ -5,6 +5,33 @@
             "denkmallistennummer": "0130",
             "name": "Bronzefigur Diana mit springender Antilope"
         },
+
+
+        {
+            "id": 2910176,
+            "denkmallistennummer": "2611",
+            "name": "Zoologischer Garten - Ganesha",
+            "xcoord":  3995502.5621204316,
+            "ycoord": 489106.850492602,
+            "zcoord": 4930995.228427436,
+            "x": 100,
+            "heightOffset" : 50
+        },
+        {
+            "id": 2899705,
+            "denkmallistennummer": "0690",
+            "name": "Jan-Wellem-Denkmal",
+            "x": 200,
+            "heightOffset" : 100
+        },
+
+        {
+            "id": 2895114,
+            "denkmallistennummer": "0593",
+            "name": "Junge mit Schildkröten",
+            "x": 200,
+            "heightOffset" : 100
+        },
         {
             "id": 0,
             "denkmallistennummer": "0",

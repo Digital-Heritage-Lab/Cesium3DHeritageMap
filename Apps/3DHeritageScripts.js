@@ -90,7 +90,8 @@ async function loadGeoJson() {
     try {
         if (markersInitialized) return; // If markers are already loaded, do not load again
 
-        const dataSource = await Cesium.GeoJsonDataSource.load('https://opendem.info/cgi-bin/getDenkmal.py');
+        let dataSource = await Cesium.GeoJsonDataSource.load('https://opendem.info/cgi-bin/getDenkmal.py');
+
         await viewer.dataSources.add(dataSource);
 
         const entities = dataSource.entities.values;
@@ -126,6 +127,27 @@ async function loadGeoJson() {
 
                 // If the viewer3d property is "ja", append its kurzbezeichnung to the story map box
                 if (entity.properties.viewer3d && entity.properties.viewer3d.getValue() === 'ja') {
+
+                    assets.forEach(asset => {
+
+                        if (asset.denkmallistennummer == entity.properties.denkmallistennummer.getValue()) {
+
+                            if (asset.xcoord) {
+                                entity.position._value.x = asset.xcoord;
+                            }
+                            if (asset.ycoord) {
+                                entity.position._value.y = asset.ycoord;
+                            }
+                            if (asset.zcoord) {
+                                entity.position._value.z = asset.zcoord;
+                            }
+
+
+                        }
+                    });
+
+
+
                     const kurzbezeichnung = entity.properties.kurzbezeichnung ? entity.properties.kurzbezeichnung.getValue() : 'No name available';
                     const pElement = document.createElement('p');
                     pElement.textContent = kurzbezeichnung;
@@ -231,6 +253,8 @@ const assetsUrl = 'Data/assets.json'; // First file
 //const denkmaelerUrl = 'Data/denkmaeler.json'; // Second file
 const denkmaelerUrl = 'https://opendem.info/cgi-bin/getDenkmal.py';
 
+let assets = {};
+
 // Load the first JSON file
 fetch(assetsUrl)
     .then(response => {
@@ -242,7 +266,7 @@ fetch(assetsUrl)
     .then(data => {
 
 
-        const assets = data.assets; // Assets are defined here
+        assets = data.assets; // Assets are defined here
 
         // Load the second JSON file
         return fetch(denkmaelerUrl)
@@ -278,6 +302,8 @@ fetch(assetsUrl)
 
                     // If denkmallistennummer exists and there is a match, add it
                     if (denkmallistennummer && denkmaelerMap[denkmallistennummer]) {
+
+                        // todo get
                         const assetUrl = Cesium.IonResource.fromAssetId(asset.id); // Use asset ID
                         const tileset = new Cesium.Cesium3DTileset({
                             url: assetUrl,
@@ -295,6 +321,7 @@ fetch(assetsUrl)
 
 // Add event listener for click events on the map
 viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(movement) {
+
     const pickedObject = viewer.scene.pick(movement.position);
     if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
         const entity = pickedObject.id;
@@ -354,14 +381,31 @@ viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
     const pickedObject = viewer.scene.pick(movement.position);
     if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
         const entity = pickedObject.id;
-        const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
+        let markerPosition = entity.position.getValue(Cesium.JulianDate.now());
 
+
+
+        let x = 400;
         // Height offset to position the camera above the marker
-        const heightOffset = 200; // Marker'ın üstünde olmak için
+        let heightOffset = 200; // Marker'ın üstünde olmak için
+
+        assets.forEach(asset => {
+
+            if (pickedObject.id.properties.denkmallistennummer.getValue() === asset.denkmallistennummer) {
+                if (asset.x) {
+                    x = asset.x;
+                }
+                if (asset.heightOffset) {
+                    heightOffset = asset.heightOffset;
+                }
+            }
+        });
+
+        // adapt height and x, more parameters possible
 
         // Position the camera behind the marker
         const cameraPosition = new Cesium.Cartesian3(
-            markerPosition.x + 400, // Move in the X direction
+            markerPosition.x + x, // Move in the X direction
             markerPosition.y + 50,  // Move in the Y direction
             markerPosition.z + heightOffset // Move up
         );
@@ -377,10 +421,6 @@ viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
         });
     }
 }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-
-
-
-
 
 // Add event listener for close button in the info box
 document.getElementById('closeInfoBox').onclick = () => {
@@ -419,7 +459,6 @@ document.getElementById('openOptionsBox').onclick = () => {
 };
 
 
-
 // Loading icon element
 const loadingScreen = document.getElementById('loadingScreen');
 
@@ -435,3 +474,13 @@ viewer.scene.globe.tileLoadProgressEvent.addEventListener((count) => {
 window.addEventListener('load', () => {
     loadingScreen.style.display = 'flex';
 });
+
+
+
+// double-click event handler to get cartesian coordinates
+/*
+viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(click) {
+    var cartesian = viewer.scene.pickPosition(click.position);
+    console.log(cartesian);
+}, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+*/
