@@ -1,5 +1,61 @@
 {
     "assets": [
+
+
+
+        {
+            "id": 2912123,
+            "denkmallistennummer": "oklab_1",
+            "name": "NS-Gedenkstätte Gremberger Wäldchen",
+            "x": 150,
+            "y": 20,
+            "heightOffset" : 100
+
+        },
+        {
+            "id": 2911916,
+            "denkmallistennummer": "0706",
+            "name": "Schifffahrtsbrunnen",
+            "x": 150,
+            "y": 20,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911870,
+            "denkmallistennummer": "0694",
+            "name": "Skulpturenpark Stammheim",
+            "xcoord":  3992952.123186568,
+            "ycoord": 488873.11609436333,
+            "zcoord": 4932599.045078737
+        },
+        {
+            "id": 2911843,
+            "denkmallistennummer": "0654",
+            "name": "Genoveva-Brunnen",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911828,
+            "denkmallistennummer": "0652",
+            "name": "Kreuz",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911823,
+            "denkmallistennummer": "0639",
+            "name": "Bildstock",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911770,
+            "denkmallistennummer": "0598",
+            "name": "Mutter und Kind",
+            "x": 200,
+            "heightOffset" : 100
+        },
         {
             "id": 2255119,
             "denkmallistennummer": "0130",
@@ -42,5 +98,6 @@
             "denkmallistennummer": "0320",
             "name": "assetnamehere"
         }
+
     ]
 }

@@ -303,7 +303,7 @@ fetch(assetsUrl)
                     // If denkmallistennummer exists and there is a match, add it
                     if (denkmallistennummer && denkmaelerMap[denkmallistennummer]) {
 
-                        // todo get
+                        console.log(denkmallistennummer);
                         const assetUrl = Cesium.IonResource.fromAssetId(asset.id); // Use asset ID
                         const tileset = new Cesium.Cesium3DTileset({
                             url: assetUrl,
@@ -386,6 +386,7 @@ viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
 
 
         let x = 400;
+        let y = 50;
         // Height offset to position the camera above the marker
         let heightOffset = 200; // Marker'ın üstünde olmak için
 
@@ -394,6 +395,9 @@ viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
             if (pickedObject.id.properties.denkmallistennummer.getValue() === asset.denkmallistennummer) {
                 if (asset.x) {
                     x = asset.x;
+                }
+                if (asset.y) {
+                    y = asset.y;
                 }
                 if (asset.heightOffset) {
                     heightOffset = asset.heightOffset;
@@ -406,7 +410,7 @@ viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
         // Position the camera behind the marker
         const cameraPosition = new Cesium.Cartesian3(
             markerPosition.x + x, // Move in the X direction
-            markerPosition.y + 50,  // Move in the Y direction
+            markerPosition.y + y,  // Move in the Y direction
             markerPosition.z + heightOffset // Move up
         );
 
