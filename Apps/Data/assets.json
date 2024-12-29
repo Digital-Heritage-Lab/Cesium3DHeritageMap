@@ -1,8 +1,13 @@
 {
     "assets": [
 
-
-
+        {
+            "id": 2955608,
+            "denkmallistennummer": "0689",
+            "name": "Märchenbrunnen",
+            "x": 200,
+            "heightOffset" : 100
+        },
         {
             "id": 2912123,
             "denkmallistennummer": "oklab_1",
