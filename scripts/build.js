@@ -324,6 +324,11 @@ export async function createCombinedSpecList() {
     }
   }
 
+  const directory = path.dirname(path.join("Specs", "SpecList.js"));
+  if (!existsSync(directory)) {
+    mkdirp.sync(directory);
+  }
+
   await writeFile(path.join("Specs", "SpecList.js"), contents, {
     encoding: "utf-8",
   });
@@ -901,6 +906,11 @@ async function createSpecListForWorkspace(files, workspace, outputPath) {
       ""
     )}.js';\n`;
   });
+
+  const directory = path.dirname(outputPath);
+  if (!existsSync(directory)) {
+    mkdirp.sync(directory);
+  }
 
   await writeFile(outputPath, contents, {
     encoding: "utf-8",
