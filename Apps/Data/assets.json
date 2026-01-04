@@ -1,0 +1,108 @@
+{
+    "assets": [
+
+        {
+            "id": 2955608,
+            "denkmallistennummer": "0689",
+            "name": "Märchenbrunnen",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2912123,
+            "denkmallistennummer": "oklab_1",
+            "name": "NS-Gedenkstätte Gremberger Wäldchen",
+            "x": 150,
+            "y": 20,
+            "heightOffset" : 100
+
+        },
+        {
+            "id": 2911916,
+            "denkmallistennummer": "0706",
+            "name": "Schifffahrtsbrunnen",
+            "x": 150,
+            "y": 20,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911870,
+            "denkmallistennummer": "0694",
+            "name": "Skulpturenpark Stammheim",
+            "xcoord":  3992952.123186568,
+            "ycoord": 488873.11609436333,
+            "zcoord": 4932599.045078737
+        },
+        {
+            "id": 2911843,
+            "denkmallistennummer": "0654",
+            "name": "Genoveva-Brunnen",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911828,
+            "denkmallistennummer": "0652",
+            "name": "Kreuz",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911823,
+            "denkmallistennummer": "0639",
+            "name": "Bildstock",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2911770,
+            "denkmallistennummer": "0598",
+            "name": "Mutter und Kind",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 2255119,
+            "denkmallistennummer": "0130",
+            "name": "Bronzefigur Diana mit springender Antilope"
+        },
+
+
+        {
+            "id": 2910176,
+            "denkmallistennummer": "2611",
+            "name": "Zoologischer Garten - Ganesha",
+            "xcoord":  3995502.5621204316,
+            "ycoord": 489106.850492602,
+            "zcoord": 4930995.228427436,
+            "x": 100,
+            "heightOffset" : 50
+        },
+        {
+            "id": 2899705,
+            "denkmallistennummer": "0690",
+            "name": "Jan-Wellem-Denkmal",
+            "x": 200,
+            "heightOffset" : 100
+        },
+
+        {
+            "id": 2895114,
+            "denkmallistennummer": "0593",
+            "name": "Junge mit Schildkröten",
+            "x": 200,
+            "heightOffset" : 100
+        },
+        {
+            "id": 0,
+            "denkmallistennummer": "0",
+            "name": "assetnamehere"
+        },
+        {
+            "id": 2854882,
+            "denkmallistennummer": "0320",
+            "name": "assetnamehere"
+        }
+
+    ]
+}

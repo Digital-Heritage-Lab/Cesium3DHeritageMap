@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monument Database</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Modal Structure -->
+    <div id="modal" class="modal">
+        <span class="close">&times;</span>
+        <div class="modal-content" id="modal-content"></div>
+    </div>
+
+    <div class="page">
+        <header class="page-header">
+            <div class="title-block">
+                <h1>Monument Database</h1>
+                <p class="subtitle">Search monuments, view photos, and open 3D or map links.</p>
+            </div>
+            <div id="search-and-filter" class="toolbar">
+                <div id="search-bar" class="control-group">
+                    <input type="search" id="search-input" placeholder="Search list number or description..."
+                        aria-label="Search monuments">
+                    <button id="search-button">Search</button>
+                </div>
+                <div id="filter-bar" class="control-group">
+                    <label for="category-filter">Category</label>
+                    <select id="category-filter">
+                        <option value="">All categories</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <a href="../Apps/3DHeritageMapApp.html" id="map-button">
+                        <span class="icon">🗺️</span>
+                        <span>Map</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="table-wrap">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th id="th-denkmallistennummer">Memorial List Number</th>
+                            <th>Photo</th>
+                            <th id="th-kurzbezeichnung">Brief Description</th>
+                            <th>Category</th>
+                            <th id="th-baujahr">Year of Construction</th>
+                            <th id="th-unterschutzstellung">Protection Date</th>
+                            <th>Map Location</th>
+                            <th>3D Model</th>
+                            <th>Wiki</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- JSON data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>

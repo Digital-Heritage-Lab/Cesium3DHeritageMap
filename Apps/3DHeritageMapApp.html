@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+    <title>Cesium3D Heritage Map</title>
+    <!-- Including Cesium JS and CSS files -->
+    <script>
+        window.CESIUM_BASE_URL = "../Build/Cesium/";
+    </script>
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <link href="../Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="3DHeritageStyles.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Loading Icon -->
+    <div id="loadingScreen">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+
+    <!-- Options box -->
+    <div id="optionsBox" class="panel">
+        <h2>Filter Options</h2>
+        <div class="filter-group">
+            <label class="active" data-filter="allMarkers">
+                <span>All Markers</span>
+                <input type="radio" name="option" id="allMarkers" checked />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="viewer3d">
+                <span>3D Viewer Models</span>
+                <input type="radio" name="option" id="viewer3d" />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="3dmodel">
+                <span>External 3D Models</span>
+                <input type="radio" name="option" id="3dmodel" />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="photo">
+                <span>Photos</span>
+                <input type="radio" name="option" id="photo" />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="wikipedia">
+                <span>Wikipedia Articles</span>
+                <input type="radio" name="option" id="wikipedia" />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="openstreetmap">
+                <span>OpenStreetMap</span>
+                <input type="radio" name="option" id="filter_openstreetmap" />
+                <span class="radio-indicator"></span>
+            </label>
+            <label data-filter="lodData">
+                <span>LOD Data</span>
+                <input type="checkbox" id="lodData" />
+                <span class="radio-indicator"></span>
+            </label>
+        </div>
+        <button id="closeOptionsBox">×</button>
+    </div>
+
+    <!-- StoryMap Box -->
+    <div id="storyMapBox" class="panel">
+        <h2>Story Mapping</h2>
+        <p>There is no 3D objects on the map.</p>
+        <button id="closeStoryMapBox">×</button>
+    </div>
+
+    <!-- Basemap Box -->
+    <div id="baseMapBox" class="panel">
+        <h2>Base Map</h2>
+        <label for="baseMapSelect">Select Layer</label>
+        <select id="baseMapSelect">
+            <option value="ion-aerial">Bing Maps Aerial</option>
+            <option value="google-photorealistic">Google Photorealistic 3D</option>
+            <option value="osm">OpenStreetMap</option>
+            <option value="mapbox-streets">Mapbox Streets v12</option>
+            <option value="basemap-libre">Basemap Libre</option>
+        </select>
+        <p id="baseMapNote"></p>
+        <button id="closeBaseMapBox">×</button>
+    </div>
+
+    <!-- Primary controls -->
+    <div id="uiDockLeft" class="ui-dock">
+        <button id="openOptionsBox" class="ui-button" aria-label="Filter Options">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+            <span>Filter</span>
+        </button>
+        <button id="openStoryMapBox" class="ui-button" aria-label="Story Map">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18" />
+                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+            </svg>
+            <span>Story Map</span>
+        </button>
+        <button id="openBaseMapBox" class="ui-button" aria-label="Base Map Layer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span>Basemap</span>
+        </button>
+        <a href="../DBApp/dbapp.html">
+            <button id="dataBaseButton" class="ui-button" aria-label="Datenbank öffnen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+                </svg>
+                <span>Database</span>
+            </button>
+        </a>
+    </div>
+
+    <!-- Map Title -->
+    <div id="mapTitle">
+        <span class="main-text">Denkmal 4d Cologne</span>
+        <span class="edition">(Cesium Edition)</span>
+    </div>
+
+    <!-- Cesium Container -->
+    <div id="cesiumContainer"></div>
+
+    <!-- Info box -->
+    <div id="infoBox" class="panel">
+        <button id="closeInfoBox">×</button>
+        <h2>Information</h2>
+        <div id="infoContent">
+            <div id="appInfo">
+                <p>Diese 3D-Webkarte ist eine parallele Anwendung zur 4D-Koeln-Karte.</p>
+                <p>Sie zeigt digitale 3D-Kopien und Hintergrundinfos zu Denkmälern.</p>
+                <p>Marker, Filter und Suche helfen, Orte schnell zu finden.</p>
+                <p>Klick auf ein Objekt öffnet Details, Fotos und externe Links.</p>
+                <p>Ziel: Forschung, Vermittlung und Erhalt des kulturellen Erbes.</p>
+                <p style="margin-top: 1rem; font-weight: 600; color: var(--primary-400);">
+                    Powered by <a href="https://digitalheritagelab.com/" target="_blank"
+                        style="color: inherit; text-decoration: underline;">Team Digital Heritage Lab</a> and OK Lab
+                    Köln
+                </p>
+
+            </div>
+            <div id="entityInfo"></div>
+        </div>
+    </div>
+    <!-- External Link Button (Under Home Button) -->
+    <a href="https://codeforcologne.github.io/Denkmal-4D-Koeln/" target="_blank" id="denkmalBtn" style="
+        position: absolute; 
+        top: 80px; 
+        right: 12px; 
+        z-index: 990;
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, var(--primary-500), var(--secondary-500));
+        color: white;
+        text-decoration: none;
+        border-radius: 99px;
+        font-family: var(--font-ui);
+        font-weight: 600;
+        font-size: 13px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s;
+        border: 1px solid rgba(255,255,255,0.2);
+    " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        <span>Denkmal 4D Köln</span>
+    </a>
+
+    <!-- Secondary controls -->
+    <div id="uiDockRight" class="ui-dock ui-dock-right">
+        <button id="openInfoBox" class="ui-button" aria-label="Information">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>Info</span>
+        </button>
+    </div>
+    <script src="3DHeritageScripts.js"></script>
+</body>
+
+</html>
