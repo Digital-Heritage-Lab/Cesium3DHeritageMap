@@ -1,6 +1,6 @@
 /*eslint-env node*/
 import child_process from "child_process";
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 import { EOL } from "os";
 import path from "path";
@@ -10,10 +10,10 @@ import esbuild from "esbuild";
 import { globby } from "globby";
 import glslStripComments from "glsl-strip-comments";
 import gulp from "gulp";
-import { rimraf } from "rimraf";
+import { rimraf, rimrafSync } from "rimraf";
 import streamToPromise from "stream-to-promise";
 
-import { mkdirp } from "mkdirp";
+
 
 // Determines the scope of the workspace packages. If the scope is set to cesium, the workspaces should be @cesium/engine.
 // This should match the scope of the dependencies of the root level package.json.
@@ -218,7 +218,7 @@ export async function bundleCesiumJs(options) {
       contexts.iifeWorkers = iifeWorkers;
     } else {
       handleBuildWarnings(iife);
-      rimraf.sync(inlineWorkerPath);
+      rimrafSync(inlineWorkerPath);
     }
   }
 
@@ -326,7 +326,7 @@ export async function createCombinedSpecList() {
 
   const directory = path.dirname(path.join("Specs", "SpecList.js"));
   if (!existsSync(directory)) {
-    mkdirp.sync(directory);
+    mkdirSync(directory, { recursive: true });
   }
 
   await writeFile(path.join("Specs", "SpecList.js"), contents, {
@@ -537,7 +537,7 @@ export default "${contents}";\n`;
 
   // delete any left over JS files from old shaders
   Object.keys(leftOverJsFiles).forEach(function (filepath) {
-    rimraf.sync(filepath);
+    rimrafSync(filepath);
   });
 
   const generateBuiltinContents = function (contents, builtins, path) {
@@ -909,7 +909,7 @@ async function createSpecListForWorkspace(files, workspace, outputPath) {
 
   const directory = path.dirname(outputPath);
   if (!existsSync(directory)) {
-    mkdirp.sync(directory);
+    mkdirSync(directory, { recursive: true });
   }
 
   await writeFile(outputPath, contents, {
@@ -1009,7 +1009,7 @@ export const buildEngine = async (options) => {
   const write = options.write ?? true;
 
   // Create Build folder to place build artifacts.
-  mkdirp.sync("packages/engine/Build");
+  mkdirSync("packages/engine/Build", { recursive: true });
 
   // Convert GLSL files to JavaScript modules.
   await glslToJavaScript(
@@ -1056,7 +1056,7 @@ export const buildWidgets = async (options) => {
   const write = options.write ?? true;
 
   // Generate Build folder to place build artifacts.
-  mkdirp.sync("packages/widgets/Build");
+  mkdirSync("packages/widgets/Build", { recursive: true });
 
   // Create index.js
   await createIndexJs("widgets");
@@ -1100,11 +1100,11 @@ export async function buildCesium(options) {
   const write = options.write ?? true;
 
   // Generate Build folder to place build artifacts.
-  mkdirp.sync("Build");
+  mkdirSync("Build", { recursive: true });
   const outputDirectory =
     options.outputDirectory ??
     path.join("Build", `Cesium${!minify ? "Unminified" : ""}`);
-  rimraf.sync(outputDirectory);
+  rimrafSync(outputDirectory);
 
   await writeFile(
     "Build/package.json",
