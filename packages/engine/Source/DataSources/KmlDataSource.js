@@ -42,7 +42,7 @@ import LabelStyle from "../Scene/LabelStyle.js";
 import SceneMode from "../Scene/SceneMode.js";
 import Autolinker from "autolinker";
 import Uri from "urijs";
-import * as zip from "@zip.js/zip.js/lib/zip-no-worker.js";
+import * as zip from "@zip.js/zip.js";
 import getElement from "./getElement.js";
 import BillboardGraphics from "./BillboardGraphics.js";
 import CompositePositionProperty from "./CompositePositionProperty.js";
@@ -4191,7 +4191,7 @@ KmlDataSource.prototype.update = function (time) {
         if (
           networkLink.needsUpdate &&
           JulianDate.secondsDifference(now, networkLink.cameraUpdateTime) >=
-            networkLink.time
+          networkLink.time
         ) {
           doUpdate = true;
         }

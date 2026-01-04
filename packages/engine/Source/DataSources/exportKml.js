@@ -20,7 +20,7 @@ import TimeIntervalCollection from "../Core/TimeIntervalCollection.js";
 import HeightReference from "../Scene/HeightReference.js";
 import HorizontalOrigin from "../Scene/HorizontalOrigin.js";
 import VerticalOrigin from "../Scene/VerticalOrigin.js";
-import * as zip from "@zip.js/zip.js/lib/zip-no-worker.js";
+import * as zip from "@zip.js/zip.js";
 import BillboardGraphics from "./BillboardGraphics.js";
 import CompositePositionProperty from "./CompositePositionProperty.js";
 import ModelGraphics from "./ModelGraphics.js";
@@ -1062,8 +1062,7 @@ function getLinearRing(state, positions, height, perPositionHeight) {
     coordinateStrings.push(
       `${CesiumMath.toDegrees(
         scratchCartographic.longitude
-      )},${CesiumMath.toDegrees(scratchCartographic.latitude)},${
-        perPositionHeight ? scratchCartographic.height : height
+      )},${CesiumMath.toDegrees(scratchCartographic.latitude)},${perPositionHeight ? scratchCartographic.height : height
       }`
     );
   }
@@ -1456,8 +1455,7 @@ function getCoordinates(coordinates, ellipsoid) {
     coordinateStrings.push(
       `${CesiumMath.toDegrees(
         scratchCartographic.longitude
-      )},${CesiumMath.toDegrees(scratchCartographic.latitude)},${
-        scratchCartographic.height
+      )},${CesiumMath.toDegrees(scratchCartographic.latitude)},${scratchCartographic.height
       }`
     );
   }
