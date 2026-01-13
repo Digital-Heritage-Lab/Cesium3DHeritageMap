@@ -581,6 +581,33 @@ if (lodCheckbox) {
     });
 }
 
+// Setup independent Google Photorealistic toggle (Checkbox)
+const googleCheckbox = document.getElementById('googlePhotorealistic');
+if (googleCheckbox) {
+    googleCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            const select = document.getElementById('baseMapSelect');
+            if (select) {
+                select.value = 'google-photorealistic';
+                select.dispatchEvent(new Event('change'));
+            }
+            // Deactivate LOD if Google is on
+            if (lodCheckbox && lodCheckbox.checked) {
+                lodCheckbox.click();
+            }
+        }
+
+        const label = googleCheckbox.closest('label');
+        if (label) {
+            if (e.target.checked) {
+                label.classList.add('active');
+            } else {
+                label.classList.remove('active');
+            }
+        }
+    });
+}
+
 function getEntityFlags(entity) {
     if (entity.heritageFlags) {
         return entity.heritageFlags;

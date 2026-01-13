@@ -371,13 +371,34 @@ class HeritageAIChat {
             return "Switched to Google Photorealistic 3D.";
         }
         if (text.includes('buildings')) {
-            const checkbox = document.getElementById('lodData');
-            if (checkbox) {
-                if (checkbox.checked !== enable) {
-                    checkbox.click(); // Using click to ensure event listeners fire
-                }
-                return enable ? "Enabled 3D OSM Buildings." : "Disabled 3D OSM Buildings.";
+            // 1. Uncheck LOD Data filter if it was active
+            const lodCheckbox = document.getElementById('lodData');
+            if (lodCheckbox && lodCheckbox.checked) {
+                lodCheckbox.click(); // Using click to ensure event listeners fire
             }
+
+            // 2. Activate Google Photorealistic via Basemap Control
+            this.setBaseMap('google-photorealistic');
+
+            // 3. Hide all other filters and show only Google Photorealistic filter
+            const filterLabels = document.querySelectorAll('#optionsBox .filter-group label');
+            filterLabels.forEach(label => {
+                if (label.id === 'googleFilterLabel') {
+                    label.style.display = 'flex';
+                    const cb = label.querySelector('input');
+                    if (cb) cb.checked = true;
+                    label.classList.add('active');
+                } else {
+                    label.style.display = 'none';
+                }
+            });
+
+            // 4. Zoom to Cologne Cathedral from 500m South-West
+            // Target: ~6.9583, 50.9413
+            // Offset ~500m SW: Lon -0.006, Lat -0.004
+            this.flyToLocation(6.9523, 50.9373, 500, 45, -30);
+
+            return "Google Photorealistic 3D activated. Viewing Cologne Cathedral from 500m Southwest.";
         }
         return "I can control OSM, Aerial, Google 3D, and OSM Buildings.";
     }
@@ -416,8 +437,17 @@ class HeritageAIChat {
             return "Showing only Photos.";
         }
         if (text.includes('all')) {
+            // Show all hidden filters
+            const filterLabels = document.querySelectorAll('#optionsBox .filter-group label');
+            filterLabels.forEach(label => {
+                if (label.id === 'googleFilterLabel') {
+                    label.style.display = 'none';
+                } else {
+                    label.style.display = 'flex';
+                }
+            });
             this.triggerFilter('allMarkers');
-            return "Showing all markers.";
+            return "Showing all markers and resetting filter list.";
         }
         return "I can filter by 'models', 'photos', or 'all'.";
     }
