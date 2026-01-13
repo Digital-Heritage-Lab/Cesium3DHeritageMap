@@ -1143,8 +1143,8 @@ async function initViewer() {
 
         if (Cesium.defined(pickedId)) {
             showEntityInfo(pickedId);
-            document.getElementById('infoBox').style.display = 'block';
-            document.getElementById('openInfoBox').style.display = 'none';
+            // Use central panel management to ensure exclusivity
+            openPanel('info');
         }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
@@ -1198,13 +1198,18 @@ async function initViewer() {
  */
 function showEntityInfo(entity) {
     const infoBox = document.getElementById('entityInfo');
-    if (!infoBox) {
-        return;
+    const appInfo = document.getElementById('appInfo'); // Get generic app info
+    if (!infoBox) return;
+
+    // Hide generic info when showing entity details
+    if (appInfo && entity) {
+        appInfo.style.display = 'none';
+    } else if (appInfo && !entity) {
+        appInfo.style.display = 'block';
     }
+
     infoBox.innerHTML = '';
-    if (!entity || !entity.properties) {
-        return;
-    }
+    if (!entity || !entity.properties) return;
 
     const propertiesToShow = ['denkmallistennummer', 'kategorie', 'kurzbezeichnung', 'baujahr'];
     propertiesToShow.forEach(property => {
@@ -1220,7 +1225,7 @@ function showEntityInfo(entity) {
     const controls = [
         { prop: 'wiki', urlProp: 'wikiurl', label: 'Wikipedia' },
         { prop: 'model3d', urlProp: 'model3durl', label: '3D Model' },
-        { prop: 'foto', urlProp: 'fotourl', label: 'Foto' },
+        // Foto button removed as it is now shown automatically
         { prop: 'osm', urlProp: 'osmurl', label: 'OpenStreetMap' }
     ];
 
@@ -1228,21 +1233,35 @@ function showEntityInfo(entity) {
         if (entity.properties[control.prop]) {
             const flag = entity.properties[control.prop].getValue();
             const isEnabled = typeof flag === 'string' ? flag.toLowerCase() === 'ja' : Boolean(flag);
-            if (!isEnabled) {
-                return;
-            }
+            if (!isEnabled) return;
+
             const button = document.createElement('button');
             button.textContent = control.label;
+
+            // Default behavior for links
             button.onclick = () => {
                 const url = entity.properties[control.urlProp].getValue();
-                if (!url) {
-                    return;
-                }
+                if (!url) return;
                 window.open(url, '_blank', 'noopener,noreferrer');
             };
+
             infoBox.appendChild(button);
         }
     });
+
+    // Automatically display photo if available
+    if (entity.properties.fotourl) {
+        const url = entity.properties.fotourl.getValue();
+        if (url) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'entity-image-container';
+            imgContainer.style.marginTop = '15px';
+            imgContainer.style.textAlign = 'center';
+            // Added clickable image to open full size
+            imgContainer.innerHTML = `<img src="${url}" alt="Denkmal Foto" title="Click to enlarge" style="max-width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer;" onclick="window.open('${url}', '_blank')">`;
+            infoBox.appendChild(imgContainer);
+        }
+    }
 }
 
 // Event Listeners
@@ -1252,7 +1271,8 @@ const panels = {
     options: { panel: 'optionsBox', button: 'openOptionsBox' },
     storymap: { panel: 'storyMapBox', button: 'openStoryMapBox' },
     basemap: { panel: 'baseMapBox', button: 'openBaseMapBox' },
-    info: { panel: 'infoBox', button: 'openInfoBox' }
+    info: { panel: 'infoBox', button: 'openInfoBox' },
+    aichat: { panel: 'aiChatPanel', button: 'toggleAiChat' }
 };
 
 let currentOpenPanel = null;
@@ -1343,6 +1363,22 @@ document.getElementById('openInfoBox').onclick = () => {
 
 document.getElementById('closeInfoBox').onclick = () => {
     closeAllPanels();
+};
+
+document.getElementById('toggleAiChat').onclick = () => {
+    // Initialize if not already (lazy load or just ensure it exists)
+    if (!window.aiChatInstance && typeof HeritageAIChat !== 'undefined' && viewer) {
+        window.aiChatInstance = new HeritageAIChat(viewer);
+
+        // Override the close button behavior to use our central panel manager
+        const closeBtn = document.getElementById('closeAiChatPanel');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                closeAllPanels();
+            };
+        }
+    }
+    togglePanel('aichat');
 };
 
 initViewer().catch((error) => {
