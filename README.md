@@ -1,3 +1,8 @@
+
+<img width="1186" height="706" alt="image" src="https://github.com/user-attachments/assets/1ad77360-3b14-45d4-810d-86874b7d31e8" />
+
+
+
 # CesiumJS
 
 [![Build Status](https://github.com/CesiumGS/cesium/actions/workflows/dev.yml/badge.svg)](https://github.com/CesiumGS/cesium/actions/workflows/dev.yml)
