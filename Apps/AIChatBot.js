@@ -374,31 +374,38 @@ class HeritageAIChat {
             // 1. Uncheck LOD Data filter if it was active
             const lodCheckbox = document.getElementById('lodData');
             if (lodCheckbox && lodCheckbox.checked) {
-                lodCheckbox.click(); // Using click to ensure event listeners fire
+                lodCheckbox.checked = false;
+                const label = lodCheckbox.closest('label');
+                if (label) label.classList.remove('active');
             }
 
             // 2. Activate Google Photorealistic via Basemap Control
             this.setBaseMap('google-photorealistic');
 
-            // 3. Hide all other filters and show only Google Photorealistic filter
+            // 3. Show Google Photorealistic filter and ensure others are visible but inactive
             const filterLabels = document.querySelectorAll('#optionsBox .filter-group label');
             filterLabels.forEach(label => {
-                if (label.id === 'googleFilterLabel') {
-                    label.style.display = 'flex';
-                    const cb = label.querySelector('input');
-                    if (cb) cb.checked = true;
+                label.style.display = 'flex'; // Always visible
+                const input = label.querySelector('input');
+
+                if (label.id === 'googleFilterLabel' || label.getAttribute('data-filter') === 'googlePhotorealistic') {
+                    if (input) input.checked = true;
                     label.classList.add('active');
                 } else {
-                    label.style.display = 'none';
+                    // Marker radios or other checkboxes
+                    // We don't necessarily want to "turn off" the radio selection, 
+                    // but we ensure LOD is off and others are not "active highlight" unless they are the selection.
+                    if (input && input.type === 'checkbox' && input.id === 'lodData') {
+                        input.checked = false;
+                        label.classList.remove('active');
+                    }
                 }
             });
 
             // 4. Zoom to Cologne Cathedral from 500m South-West
-            // Target: ~6.9583, 50.9413
-            // Offset ~500m SW: Lon -0.006, Lat -0.004
             this.flyToLocation(6.9523, 50.9373, 500, 45, -30);
 
-            return "Google Photorealistic 3D activated. Viewing Cologne Cathedral from 500m Southwest.";
+            return "Google Photorealistic 3D activated. All filters are visible, but LOD is deactivated.";
         }
         return "I can control OSM, Aerial, Google 3D, and OSM Buildings.";
     }
@@ -437,13 +444,14 @@ class HeritageAIChat {
             return "Showing only Photos.";
         }
         if (text.includes('all')) {
-            // Show all hidden filters
+            // Ensure all filters are visible and reset google filter if needed
             const filterLabels = document.querySelectorAll('#optionsBox .filter-group label');
             filterLabels.forEach(label => {
+                label.style.display = 'flex';
                 if (label.id === 'googleFilterLabel') {
-                    label.style.display = 'none';
-                } else {
-                    label.style.display = 'flex';
+                    const cb = label.querySelector('input');
+                    if (cb) cb.checked = false;
+                    label.classList.remove('active');
                 }
             });
             this.triggerFilter('allMarkers');
