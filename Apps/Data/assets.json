@@ -1,6 +1,20 @@
 {
     "assets": [
-
+        {
+            "id": 4200126,
+            "denkmallistennummer": "DE_05315000_A_3743",
+            "name": "Baudenkmal Frankenwerft 3"           
+        },
+        {
+            "id": 4293622,
+            "denkmallistennummer": "DE_05315000_A_6594",
+            "name": "Baudenkmal Frankenwerft 9"           
+        },
+        {
+            "id": 4293641,
+            "denkmallistennummer": "DE_05315000_A_6190",
+            "name": "Baudenkmal Frankenwerft 11"           
+        },
         {
             "id": 2955608,
             "denkmallistennummer": "0689",
