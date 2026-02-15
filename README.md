@@ -1,77 +1,145 @@
+# Cologne Denkmal4D – Cesium 3D Heritage Visualization
 
-<img width="1186" height="706" alt="image" src="https://github.com/user-attachments/assets/1ad77360-3b14-45d4-810d-86874b7d31e8" />
+## Overview
 
+Cologne Denkmal4D is a 3D web-based cultural heritage visualization platform built with CesiumJS. The project enables interactive exploration of georeferenced 3D monument models within a realistic WGS84 globe environment.
 
-
-# CesiumJS
-
-[![Build Status](https://github.com/CesiumGS/cesium/actions/workflows/dev.yml/badge.svg)](https://github.com/CesiumGS/cesium/actions/workflows/dev.yml)
-[![npm](https://img.shields.io/npm/v/cesium)](https://www.npmjs.com/package/cesium)
-[![Docs](https://img.shields.io/badge/docs-online-orange.svg)](https://cesium.com/learn/)
-
-![Cesium](https://github.com/CesiumGS/cesium/wiki/logos/Cesium_Logo_Color.jpg)
-
-CesiumJS is a JavaScript library for creating 3D globes and 2D maps in a web browser without a plugin. It uses WebGL for hardware-accelerated graphics, and is cross-platform, cross-browser, and tuned for dynamic-data visualization.
-
-Built on open formats, CesiumJS is designed for robust interoperability and scaling for massive datasets.
+This repository contains the Cesium-based visualization layer of the Denkmal4D initiative.
 
 ---
 
-[**Examples**](https://sandcastle.cesium.com/) :earth_asia: [**Docs**](https://cesium.com/learn/cesiumjs-learn/) :earth_americas: [**Website**](https://cesium.com/cesiumjs) :earth_africa: [**Forum**](https://community.cesium.com/) :earth_asia: [**User Stories**](https://cesium.com/user-stories/)
+## Project Goals
+
+* Visualize Cologne’s monuments in 3D
+* Integrate geospatial metadata with 3D models
+* Provide immersive navigation experience
+* Enable scalable future integration of 3D Tiles
+* Support open cultural heritage data
 
 ---
 
-## :rocket: Get started
+## Technical Architecture
 
-Visit the [Downloads page](https://cesium.com/downloads/) to download a pre-built copy of CesiumJS.
+### Core Stack
 
-### npm & yarn
+* CesiumJS
+* WebGL
+* JavaScript ES6
+* glTF model integration
+* WGS84 coordinate system
 
-If you’re building your application using a module bundler such as Webpack, Parcel, or Rollup, you can install CesiumJS via the [`cesium` npm package](https://www.npmjs.com/package/cesium):
+---
 
-```sh
-npm install cesium --save
+## Scene Initialization
+
+The Cesium Viewer is initialized with terrain, imagery layers, and lighting configuration.
+
+```javascript
+const viewer = new Cesium.Viewer("cesiumContainer", {
+    terrainProvider: Cesium.createWorldTerrain(),
+    animation: false,
+    timeline: false,
+    shouldAnimate: false
+});
 ```
 
-Then, import CesiumJS in your app code. Import individual modules to benefit from tree shaking optimizations through most build tools:
+Lighting and atmospheric rendering are enabled to enhance spatial realism.
 
-```js
-import { Viewer } from "cesium";
-import "cesium/Build/Cesium/Widgets/widgets.css";
+---
 
-const viewer = new Viewer("cesiumContainer");
+## Model Integration
+
+3D monument models are loaded as glTF assets and positioned geospatially.
+
+```javascript
+const position = Cesium.Cartesian3.fromDegrees(longitude, latitude, height);
+
+viewer.entities.add({
+    name: "Monument",
+    position: position,
+    model: {
+        uri: "model.glb",
+        scale: 1.0
+    }
+});
 ```
 
-In addition to the `cesium` package, CesiumJS is also [distributed as scoped npm packages for better dependency management](https://cesium.com/blog/2022/12/07/modular-structure-in-cesiumjs/):
+Models are rendered using the Entity API for interactive control and metadata binding.
 
-- [`@cesium/engine`](./packages/engine/README.md) - CesiumJS's core, rendering, and data APIs
-- [`@cesium/widgets`](./packages/widgets/README.md) - A widgets library for use with CesiumJS
+---
 
-### What next?
+## Coordinate Handling
 
-See our [Quickstart Guide](https://cesium.com/learn/cesiumjs-learn/cesiumjs-quickstart/) for more information on getting a CesiumJS app up and running.
+All spatial positioning is based on WGS84.
 
-Instructions for serving local data are in the CesiumJS
-[Offline Guide](./Documentation/OfflineGuide/README.md).
+Cesium internally transforms geographic coordinates into high precision Cartesian3 (ECEF) coordinates for accurate globe rendering.
 
-Interested in contributing? See [CONTRIBUTING.md](CONTRIBUTING.md). :heart:
+---
 
-## :green_book: License
+## Interaction Design
 
-[Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0.html). CesiumJS is free for both commercial and non-commercial use.
+* Camera flyTo navigation
+* Click-based metadata display
+* Hover detection
+* Custom UI overlay panels
 
-## :earth_americas: Where does the Global 3D Content come from?
+---
 
-The Cesium platform follows an [open-core business model](https://cesium.com/why-cesium/open-ecosystem/cesium-business-model/) with open source runtime engines such as CesiumJS and optional commercial subscription to Cesium ion.
+## Performance Strategy
 
-CesiumJS can stream [3D content such as terrain, imagery, and 3D Tiles from the commercial Cesium ion platform](https://cesium.com/platform/cesium-ion/content/) alongside open standards from other offline or online services. We provide Cesium ion as the quickest option for all users to get up and running, but you are free to use any combination of content sources with CesiumJS that you please.
+* Lazy loading of models
+* Controlled camera transitions
+* Reduced draw calls
+* Prepared migration path to 3D Tiles for large scale datasets
+* Optional requestRenderMode optimization for static scenes
 
-Bring your own data for tiling, hosting, and streaming from Cesium ion. [Using Cesium ion](https://cesium.com/ion/signup/) helps support CesiumJS development.
+---
 
-## :white_check_mark: Features
+## Scalability Roadmap
 
-- Stream in 3D Tiles and other standard formats from Cesium ion or another source
-- Visualize and analyze on a high-precision WGS84 globe
-- Share with users on desktop or mobile
+* Conversion pipeline to 3D Tiles
+* Level of Detail (LOD) management
+* Self-hosted tileset streaming architecture
+* Integration of photogrammetry-based models
+* Time-dynamic visualization layers
 
-See more in the [CesiumJS Features Checklist](https://github.com/CesiumGS/cesium/wiki/CesiumJS-Features-Checklist).
+---
+
+## Partner Project
+
+Denkmal4D Köln
+[https://codefor.de/projekte/cologne-denkmal4d/](https://codefor.de/projekte/cologne-denkmal4d/)
+
+---
+
+## Developer
+
+Primary Cesium Developer:
+
+Name: [Your Name]
+GitHub: [Your GitHub Username]
+
+Contribution Area:
+
+* CesiumJS 3D visualization architecture
+* Geospatial model integration
+* Scene configuration and optimization
+
+---
+
+## Why CesiumJS
+
+CesiumJS provides:
+
+* High precision WGS84 globe rendering
+* WebGL hardware acceleration
+* 3D Tiles streaming support
+* Open standards compatibility
+* Scalable architecture for city-scale visualization
+
+---
+
+## License
+
+Apache 2.0 (CesiumJS runtime)
+Project-specific components follow repository licensing.
