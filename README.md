@@ -121,14 +121,16 @@ Denkmal4D Köln
 
 Primary Cesium Developer:
 
-Name: [Your Name]
-GitHub: [Your GitHub Username]
+Name: Ertan Özcan
+GitHub: [[Your GitHub Username]](https://github.com/ErtanOz)
 
 Contribution Area:
 
 * CesiumJS 3D visualization architecture
 * Geospatial model integration
 * Scene configuration and optimization
+* SmarCity
+* GeoAI
 
 ---
 
