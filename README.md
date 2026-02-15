@@ -122,7 +122,7 @@ Denkmal4D Köln
 Primary Cesium Developer:
 
 Name: Ertan Özcan
-GitHub: [[Your GitHub Username]](https://github.com/ErtanOz)
+GitHub: [[ErtanOz]](https://github.com/ErtanOz)
 
 Contribution Area:
 
