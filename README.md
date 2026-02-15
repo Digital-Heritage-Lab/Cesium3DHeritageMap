@@ -1,3 +1,8 @@
+
+
+<img width="1186" height="706" alt="image" src="https://github.com/user-attachments/assets/1ad77360-3b14-45d4-810d-86874b7d31e8" />
+
+
 # Cologne Denkmal4D – Cesium 3D Heritage Visualization
 
 ## Overview
