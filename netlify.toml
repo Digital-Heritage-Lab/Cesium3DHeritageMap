@@ -1,41 +1,95 @@
 [build]
-  command = "npm install && npx gulp buildRelease"
-  publish = "."
+  command = "npm run build:netlify"
+  publish = "dist"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/Apps/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/DBApp/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/Apps/Data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=60, must-revalidate"
+    Content-Type = "application/json"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/Apps/Images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/Apps/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
+  for = "/Apps/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
+  for = "/Apps/*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/Build/Cesium/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.wasm"
   [headers.values]
     Content-Type = "application/wasm"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.gltf"
   [headers.values]
     Content-Type = "model/gltf+json"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.glb"
   [headers.values]
     Content-Type = "model/gltf-binary"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.b3dm"
   [headers.values]
     Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.pnts"
   [headers.values]
     Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.i3dm"
   [headers.values]
     Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.cmpt"
   [headers.values]
     Content-Type = "application/octet-stream"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*.json"

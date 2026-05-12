@@ -5,6 +5,11 @@ const config = {
     monumentsLocalUrl: 'Data/denkmaeler.json',
     assetsUrl: 'Data/assets.json',
     enable3DTiles: true,
+    eagerLoadOptionalTilesets: false,
+    showTilesetsWithAllMarkers: false,
+    deferGooglePhotorealisticUntilInteractive: true,
+    remoteMonumentFetchTimeoutMs: 3500,
+    showCesiumTimeControls: false,
     preferOnlineImagery: true,
     useGooglePhotorealistic: true,
     googlePhotorealisticAssetId: 2275207,
@@ -36,6 +41,13 @@ const mapboxStyleId = config.mapboxStyleId || 'streets-v12';
 const mapboxUsername = config.mapboxUsername || 'mapbox';
 const maplibreRasterUrl = (config.maplibreRasterUrl || '').trim();
 const maplibreAttribution = config.maplibreAttribution || 'MapLibre';
+const eagerLoadOptionalTilesets = config.eagerLoadOptionalTilesets === true;
+const showTilesetsWithAllMarkers = config.showTilesetsWithAllMarkers === true;
+const deferGooglePhotorealisticUntilInteractive = config.deferGooglePhotorealisticUntilInteractive !== false;
+const remoteMonumentFetchTimeoutMs = Number.isFinite(Number(config.remoteMonumentFetchTimeoutMs))
+    ? Number(config.remoteMonumentFetchTimeoutMs)
+    : 3500;
+const showCesiumTimeControls = config.showCesiumTimeControls === true;
 const googlePhotorealisticIonAssetId = config.googlePhotorealisticIonAssetId || config.googlePhotorealisticAssetId || 2275207;
 const googlePhotorealisticCacheBytes = (config.googlePhotorealisticCacheMB || 512) * 1024 * 1024;
 const googlePhotorealisticCacheOverflowBytes = (config.googlePhotorealisticCacheOverflowMB || 256) * 1024 * 1024;
@@ -75,9 +87,13 @@ let baseMapSwitchToken = 0;
 let googlePhotorealisticTileset = null;
 let googlePhotorealisticTilesetPromise = null;
 let googlePhotorealisticSwitchToken = 0;
+let deferredInitialPhotorealistic = false;
 let osmBuildingsTileset = null;
+let osmBuildingsTilesetPromise = null;
 let lod2TilesetWest = null;
 let lod2TilesetEast = null;
+let lod2TilesetWestPromise = null;
+let lod2TilesetEastPromise = null;
 
 async function createTerrainProvider() {
     if (!enable3DTiles) {
@@ -368,81 +384,177 @@ async function setGooglePhotorealisticEnabled(enabled) {
     }
 }
 
-async function loadOsmBuildings() {
-    if (osmBuildingsTileset) return osmBuildingsTileset;
+function deferInitialGooglePhotorealisticLoad() {
+    deferredInitialPhotorealistic = true;
+    if (viewer && viewer.scene && viewer.scene.globe) {
+        viewer.scene.globe.show = true;
+    }
+}
 
-    try {
-        // Check for Async method first (CESIUM 1.107+)
+function activateDeferredInitialPhotorealistic() {
+    if (!deferredInitialPhotorealistic) {
+        return;
+    }
+    deferredInitialPhotorealistic = false;
+
+    const startLoad = () => {
+        if (currentBaseMapId === 'google-photorealistic') {
+            void setGooglePhotorealisticEnabled(true);
+        }
+    };
+
+    if (window.requestIdleCallback) {
+        window.requestIdleCallback(startLoad, { timeout: 2000 });
+    } else {
+        setTimeout(startLoad, 250);
+    }
+}
+
+async function loadOsmBuildings() {
+    if (osmBuildingsTileset) {
+        return osmBuildingsTileset;
+    }
+    if (osmBuildingsTilesetPromise) {
+        return osmBuildingsTilesetPromise;
+    }
+
+    osmBuildingsTilesetPromise = (async () => {
         if (Cesium.createOsmBuildingsAsync) {
             osmBuildingsTileset = await Cesium.createOsmBuildingsAsync();
         } else {
-            // Fallback for older versions
             osmBuildingsTileset = Cesium.createOsmBuildings();
         }
 
         if (osmBuildingsTileset) {
-            // Style: Grey color
             osmBuildingsTileset.style = new Cesium.Cesium3DTileStyle({
                 color: "color('gray')"
             });
-            osmBuildingsTileset.show = false; // Hidden by default
+            osmBuildingsTileset.show = false;
             viewer.scene.primitives.add(osmBuildingsTileset);
         }
+
+        return osmBuildingsTileset;
+    })()
+        .catch((e) => {
+            console.warn('Error loading OSM Buildings:', e);
+            return null;
+        })
+        .finally(() => {
+            osmBuildingsTilesetPromise = null;
+        });
+
+    return osmBuildingsTilesetPromise;
+}
+
+async function loadLod2Tileset(assetId, accessToken, label) {
+    try {
+        const resource = await Cesium.IonResource.fromAssetId(assetId, {
+            accessToken: accessToken
+        });
+        const tileset = await Cesium.Cesium3DTileset.fromUrl(resource);
+
+        if (tileset) {
+            tileset.style = new Cesium.Cesium3DTileStyle({
+                color: "color('gray')"
+            });
+            tileset.show = false;
+            viewer.scene.primitives.add(tileset);
+        }
+
+        return tileset;
     } catch (e) {
-        console.warn('Error loading OSM Buildings:', e);
+        console.warn(`Error loading ${label} Buildings:`, e);
+        return null;
     }
-    return osmBuildingsTileset;
+}
+
+function setLod2TilesetsVisible(visible) {
+    if (lod2TilesetWest) {
+        lod2TilesetWest.show = visible;
+    }
+    if (lod2TilesetEast) {
+        lod2TilesetEast.show = visible;
+    }
+}
+
+async function loadLod2Tilesets() {
+    const [west, east] = await Promise.all([
+        Lod2TilesetWest(),
+        Lod2TilesetEast()
+    ]);
+    return { west, east };
+}
+
+async function setOsmBuildingsVisible(visible) {
+    if (!visible) {
+        if (osmBuildingsTileset) {
+            osmBuildingsTileset.show = false;
+        }
+        return;
+    }
+
+    const tileset = await loadOsmBuildings();
+    if (tileset) {
+        tileset.show = lodCheckbox ? lodCheckbox.checked : true;
+    }
+}
+
+async function setLod2BuildingsVisible(visible) {
+    if (!visible) {
+        setLod2TilesetsVisible(false);
+        return;
+    }
+
+    await loadLod2Tilesets();
+    setLod2TilesetsVisible(lodCheckboxGeobasis ? lodCheckboxGeobasis.checked : true);
 }
 
 async function Lod2TilesetWest() {
-    if (lod2TilesetWest) return lod2TilesetWest;
-
-    try {
-        const resourceWest = await Cesium.IonResource.fromAssetId(4382415, {
-            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c'
-        });
-        lod2TilesetWest = await Cesium.Cesium3DTileset.fromUrl(resourceWest);
-
-        if (lod2TilesetWest) {
-            // Style: Grey color
-            lod2TilesetWest.style = new Cesium.Cesium3DTileStyle({
-                color: "color('gray')"
-            });
-            lod2TilesetWest.show = false; // Hidden by default
-            viewer.scene.primitives.add(lod2TilesetWest);
-        }
-
-    } catch (e) {
-        console.warn('Error loading Lod2 West Buildings:', e);
+    if (lod2TilesetWest) {
+        return lod2TilesetWest;
     }
-    return lod2TilesetWest;
+    if (lod2TilesetWestPromise) {
+        return lod2TilesetWestPromise;
+    }
+
+    lod2TilesetWestPromise = loadLod2Tileset(
+        4382415,
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c',
+        'Lod2 West'
+    )
+        .then((tileset) => {
+            lod2TilesetWest = tileset;
+            return tileset;
+        })
+        .finally(() => {
+            lod2TilesetWestPromise = null;
+        });
+
+    return lod2TilesetWestPromise;
 }
 
 async function Lod2TilesetEast() {
-    if (lod2TilesetEast) return lod2TilesetEast;
-
-    try {
-
-        // east cologne
-        const resourceEast = await Cesium.IonResource.fromAssetId(4383827, {
-            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI'
-        });
-        lod2TilesetEast = await Cesium.Cesium3DTileset.fromUrl(resourceEast);
-
-
-        if (lod2TilesetEast) {
-            // Style: Grey color
-            lod2TilesetEast.style = new Cesium.Cesium3DTileStyle({
-                color: "color('gray')"
-            });
-            lod2TilesetEast.show = false; // Hidden by default
-            viewer.scene.primitives.add(lod2TilesetEast);
-        }
-
-    } catch (e) {
-        console.warn('Error loading Lod2 East Buildings:', e);
+    if (lod2TilesetEast) {
+        return lod2TilesetEast;
     }
-    return lod2TilesetEast;
+    if (lod2TilesetEastPromise) {
+        return lod2TilesetEastPromise;
+    }
+
+    lod2TilesetEastPromise = loadLod2Tileset(
+        4383827,
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI',
+        'Lod2 East'
+    )
+        .then((tileset) => {
+            lod2TilesetEast = tileset;
+            return tileset;
+        })
+        .finally(() => {
+            lod2TilesetEastPromise = null;
+        });
+
+    return lod2TilesetEastPromise;
 }
 
 function updateBaseMapNote(noteElement, baseMapId) {
@@ -474,6 +586,7 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
     updateBaseMapNote(noteElement, baseMapId);
 
     const enablePhotorealistic = resolvedId === 'google-photorealistic';
+    deferredInitialPhotorealistic = false;
     void setGooglePhotorealisticEnabled(enablePhotorealistic);
 
     if (resolvedId === currentBaseMapId && currentBaseLayer) {
@@ -532,7 +645,15 @@ function setupBaseMapControls(viewerInstance, baseLayer) {
 
     baseMapSelect.value = currentBaseMapId;
     updateBaseMapNote(baseMapNote, currentBaseMapId);
-    void setGooglePhotorealisticEnabled(currentBaseMapId === 'google-photorealistic');
+    if (
+        currentBaseMapId === 'google-photorealistic' &&
+        deferGooglePhotorealisticUntilInteractive &&
+        !eagerLoadOptionalTilesets
+    ) {
+        deferInitialGooglePhotorealisticLoad();
+    } else {
+        void setGooglePhotorealisticEnabled(currentBaseMapId === 'google-photorealistic');
+    }
 
     // Event listeners for open/close are managed centrally in the panel management section
     // Only add the basemap select change listener here
@@ -564,9 +685,43 @@ function addIonTileset(assetId, label) {
 
 function setTilesetsVisible(visible) {
     tilesetsVisible = visible;
+    if (visible) {
+        void loadHeritageTilesets().then(() => {
+            if (tilesetsVisible) {
+                loadedTilesets.forEach((tileset) => {
+                    tileset.show = true;
+                });
+            }
+        });
+        return;
+    }
+
     loadedTilesets.forEach((tileset) => {
-        tileset.show = visible;
+        tileset.show = false;
     });
+}
+
+function loadHeritageTilesets() {
+    if (!enable3DTiles) {
+        return Promise.resolve([]);
+    }
+    if (heritageTilesetsReady) {
+        return heritageTilesetsReady;
+    }
+
+    heritageTilesetsReady = Promise.resolve(assetsReady)
+        .then(() => Promise.all(
+            assets
+                .filter(asset => asset && asset.id && asset.denkmallistennummer)
+                .map(asset => addIonTileset(asset.id, asset.denkmallistennummer))
+        ))
+        .then(results => results.filter(tileset => tileset))
+        .catch((error) => {
+            console.warn('Heritage 3D tilesets failed to load.', error);
+            return [];
+        });
+
+    return heritageTilesetsReady;
 }
 
 // Reduce marker/label clutter and group nearby points.
@@ -604,6 +759,7 @@ const clusterPinCache = new Map();
 
 let monumentsDataSource = null;
 const loadedTilesets = [];
+let heritageTilesetsReady = null;
 let tilesetsVisible = false;
 let selectedMarkerEntity = null;
 
@@ -642,9 +798,7 @@ for (const radioId in radios) {
 const lodCheckbox = document.getElementById('lodData');
 if (lodCheckbox) {
     lodCheckbox.addEventListener('change', (e) => {
-        if (osmBuildingsTileset) {
-            osmBuildingsTileset.show = e.target.checked;
-        }
+        void setOsmBuildingsVisible(e.target.checked);
 
         const label = lodCheckbox.closest('label');
         if (label) {
@@ -661,14 +815,8 @@ if (lodCheckbox) {
 const lodCheckboxGeobasis = document.getElementById('lodDataGeobasis');
 if (lodCheckboxGeobasis) {
     lodCheckboxGeobasis.addEventListener('change', (e) => {
-        
-        
-        if (lod2TilesetWest) {
-            lod2TilesetWest.show = e.target.checked;
-        }
-        if (lod2TilesetEast) {            
-            lod2TilesetEast.show = e.target.checked;
-        }
+        void setLod2BuildingsVisible(e.target.checked);
+
         const label = lodCheckboxGeobasis.closest('label');
         if (label) {
             if (e.target.checked) {
@@ -843,7 +991,7 @@ function focusEntityMarker(entity, duration) {
  * @param {string} radioId - The id of the selected radio button.
  */
 function updateEntities(radioId) {
-    const showTilesets = radioId === 'viewer3d' || radioId === 'allMarkers';
+    const showTilesets = radioId === 'viewer3d' || (showTilesetsWithAllMarkers && radioId === 'allMarkers');
     setTilesetsVisible(showTilesets);
 
 
@@ -949,24 +1097,64 @@ function zoomToClusterEntities(clusteredEntities) {
     });
 }
 
-async function loadGeoJsonDataSource() {
-    const sources = [monumentsRemoteUrl, monumentsLocalUrl];
-    let lastError = null;
+function fetchJson(url, timeoutMs) {
+    const controller = timeoutMs > 0 && window.AbortController
+        ? new AbortController()
+        : null;
+    let timeoutId = null;
 
-    for (const source of sources) {
-        if (!source) {
-            continue;
-        }
-
-        try {
-            return await Cesium.GeoJsonDataSource.load(source);
-        } catch (error) {
-            console.warn(`GeoJSON load failed (${source}).`, error);
-            lastError = error;
-        }
+    if (controller) {
+        timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     }
 
-    throw lastError || new Error('No GeoJSON sources available.');
+    return fetch(url, controller ? { signal: controller.signal } : undefined)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network error: ' + response.statusText);
+            }
+            return response.json();
+        })
+        .finally(() => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        });
+}
+
+let monumentsGeoJsonReady = null;
+
+async function loadMonumentsGeoJson() {
+    if (monumentsGeoJsonReady) {
+        return monumentsGeoJsonReady;
+    }
+
+    const sources = [monumentsRemoteUrl, monumentsLocalUrl];
+    monumentsGeoJsonReady = (async () => {
+        let lastError = null;
+
+        for (const source of sources) {
+            if (!source) {
+                continue;
+            }
+
+            try {
+                const isRemote = /^https?:\/\//i.test(source);
+                return await fetchJson(source, isRemote ? remoteMonumentFetchTimeoutMs : 0);
+            } catch (error) {
+                console.warn(`GeoJSON load failed (${source}).`, error);
+                lastError = error;
+            }
+        }
+
+        throw lastError || new Error('No GeoJSON sources available.');
+    })();
+
+    return monumentsGeoJsonReady;
+}
+
+async function loadGeoJsonDataSource() {
+    const geoJson = await loadMonumentsGeoJson();
+    return Cesium.GeoJsonDataSource.load(geoJson);
 }
 
 async function loadGeoJson() {
@@ -1127,13 +1315,10 @@ function getUrlParameter(name) {
 }
 
 /**
- * Loads 3D asset data from 'assets.json' and monument data from
- * 'denkmaeler.json'. It adds a default 3D Tileset using a fixed
- * asset ID and appends corresponding assets to the Cesium viewer
- * based on matching monument numbers.
+ * Loads 3D asset metadata used for marker filtering and on-demand
+ * heritage tileset loading.
  */
 const assetsUrl = config.assetsUrl;
-const denkmaelerUrl = monumentsRemoteUrl;
 
 let assets = [];
 const assetsByMonument = new Map();
@@ -1144,24 +1329,6 @@ function loadAssets() {
         return Promise.resolve();
     }
 
-    const fetchJson = (url) => {
-        return fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network error: ' + response.statusText);
-                }
-                return response.json();
-            });
-    };
-
-    const fetchMonumentsData = () => {
-        return fetchJson(denkmaelerUrl).catch((error) => {
-            console.warn('Remote monument data failed, using local.', error);
-            return fetchJson(monumentsLocalUrl);
-        });
-    };
-
-    // Load the first JSON file
     return fetchJson(assetsUrl)
         .then(data => {
             assets = Array.isArray(data.assets) ? data.assets : [];
@@ -1171,41 +1338,6 @@ function loadAssets() {
                     assetsByMonument.set(String(asset.denkmallistennummer), asset);
                 }
             });
-
-            // Load the second JSON file
-            return fetchMonumentsData()
-                .then(denkmaelerData => {
-                    const features = denkmaelerData.features;
-                    if (!Array.isArray(features)) {
-                        throw new Error('Features is not an array');
-                    }
-
-                    const denkmaelerMap = {};
-                    features.forEach(item => {
-                        if (item.properties && item.properties.denkmallistennummer) {
-                            const denkmallistennummer = item.properties.denkmallistennummer;
-                            denkmaelerMap[denkmallistennummer] = item;
-                        }
-                    });
-
-                    // Add Google Photorealistic 3D Tiles if enabled - REMOVED (Handled by Basemap logic)
-                    // if (config.useGooglePhotorealistic && config.googlePhotorealisticAssetId) {
-                    //     addIonTileset(config.googlePhotorealisticAssetId, 'Google Photorealistic 3D');
-                    // }
-
-                    // Add default heritage tileset - REMOVED (Replaced by LOD Data layer)
-                    // addIonTileset(96188, 'default');
-
-                    // Check elements from the assets array and add them if there is a match
-                    assets.forEach(asset => {
-                        const denkmallistennummer = asset.denkmallistennummer;
-
-                        // If denkmallistennummer exists and there is a match, add it
-                        if (denkmallistennummer && denkmaelerMap[denkmallistennummer]) {
-                            addIonTileset(asset.id, denkmallistennummer);
-                        }
-                    });
-                });
         })
         .catch(error => {
             console.error('Error:', error);
@@ -1221,7 +1353,9 @@ async function initViewer() {
         baseLayer: baseLayer,
         baseLayerPicker: false,
         sceneModePicker: false,
-        navigationHelpButton: false
+        navigationHelpButton: false,
+        animation: showCesiumTimeControls,
+        timeline: showCesiumTimeControls
     };
 
     if (terrainProvider) {
@@ -1257,9 +1391,11 @@ async function initViewer() {
     viewer.scene.globe.enableLighting = true;
 
     assetsReady = loadAssets();
-    loadOsmBuildings(); // Start loading building data
-    Lod2TilesetEast(); // Start loading LOD2 East data
-    Lod2TilesetWest(); // Start loading LOD2 West data
+    if (eagerLoadOptionalTilesets) {
+        void loadOsmBuildings();
+        void loadLod2Tilesets();
+        void loadHeritageTilesets();
+    }
 
 
     const loadingScreen = document.getElementById('loadingScreen');
@@ -1267,20 +1403,14 @@ async function initViewer() {
     function hideLoading() {
         if (loadingScreen && loadingScreen.style.display !== 'none') {
             loadingScreen.style.display = 'none';
-            loadGeoJson();
         }
     }
 
-    // Default: use globe tile listener
-    const removeTileListener = viewer.scene.globe.tileLoadProgressEvent.addEventListener((count) => {
-        if (count === 0) {
-            removeTileListener();
+    void loadGeoJson()
+        .finally(() => {
             hideLoading();
-        }
-    });
-
-    // Fallback: if globe is hidden (Google Photorealistic) or if load takes too long
-    setTimeout(hideLoading, 5000);
+            activateDeferredInitialPhotorealistic();
+        });
 
     const lat = getUrlParameter('lat');
     const lon = getUrlParameter('lon');

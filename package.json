@@ -106,6 +106,8 @@
   },
   "scripts": {
     "build": "npx gulp buildRelease",
+    "prepare-netlify-dist": "node scripts/prepare-netlify-dist.js",
+    "build:netlify": "npm run build && npm run prepare-netlify-dist",
     "start": "node server.js --production",
     "start-public": "node server.js --public --production",
     "coverage": "gulp coverage",
