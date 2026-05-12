@@ -8,13 +8,13 @@ const config = {
     preferOnlineImagery: true,
     useGooglePhotorealistic: true,
     googlePhotorealisticAssetId: 2275207,
-    baseMapDefaultId: 'basemap-libre',
+    baseMapDefaultId: 'google-photorealistic',
     cologne: {
-        longitude: 6.9583,
-        latitude: 50.9413,
-        height: 35000,
-        pitch: -90.0,
-        heading: 0.0
+        longitude: 6.9799,
+        latitude: 50.9360,
+        height: 430,
+        heading: 292.0,
+        pitch: -15.0
     },
     defaultCameraOffset: {
         x: 400,
@@ -36,11 +36,11 @@ const mapboxStyleId = config.mapboxStyleId || 'streets-v12';
 const mapboxUsername = config.mapboxUsername || 'mapbox';
 const maplibreRasterUrl = (config.maplibreRasterUrl || '').trim();
 const maplibreAttribution = config.maplibreAttribution || 'MapLibre';
-const googlePhotorealisticIonAssetId = config.googlePhotorealisticIonAssetId || 2275207;
+const googlePhotorealisticIonAssetId = config.googlePhotorealisticIonAssetId || config.googlePhotorealisticAssetId || 2275207;
 const googlePhotorealisticCacheBytes = (config.googlePhotorealisticCacheMB || 512) * 1024 * 1024;
 const googlePhotorealisticCacheOverflowBytes = (config.googlePhotorealisticCacheOverflowMB || 256) * 1024 * 1024;
 const googlePhotorealisticEnableCollision = config.googlePhotorealisticEnableCollision === undefined
-    ? false
+    ? true
     : config.googlePhotorealisticEnableCollision;
 const googleMapsApiKey = (config.googleMapsApiKey || '').trim();
 if (googleMapsApiKey && Cesium.GoogleMaps) {
@@ -62,7 +62,7 @@ const cologneLocation = Cesium.Cartesian3.fromDegrees(
 const cologneView = {
     destination: cologneLocation,
     orientation: {
-        heading: Cesium.Math.toRadians(0.0),
+        heading: Cesium.Math.toRadians(config.cologne.heading),
         pitch: Cesium.Math.toRadians(config.cologne.pitch),
         roll: 0.0
     }
@@ -517,11 +517,33 @@ function setTilesetsVisible(visible) {
 }
 
 // Reduce marker/label clutter and group nearby points.
-const markerScaleByDistance = new Cesium.NearFarScalar(1500.0, 1.0, 15000.0, 0.45);
-const labelMaxDistance = 2000.0;
+const markerWidth = 38;
+const markerHeight = 38;
+const selectedMarkerWidth = 46;
+const selectedMarkerHeight = 46;
+const markerPixelOffset = new Cesium.Cartesian2(0, 0);
+const markerDepthTestDistance = Number.POSITIVE_INFINITY;
+const markerScaleByDistance = new Cesium.NearFarScalar(1500.0, 1.08, 15000.0, 0.5);
+const selectedMarkerScaleByDistance = new Cesium.NearFarScalar(1500.0, 1.2, 15000.0, 0.62);
+const labelMaxDistance = 3200.0;
+const selectedLabelMaxDistance = 6500.0;
 const labelDistanceDisplayCondition = new Cesium.DistanceDisplayCondition(0.0, labelMaxDistance);
-const labelScaleByDistance = new Cesium.NearFarScalar(200.0, 1.0, labelMaxDistance, 0.0);
-const labelTranslucencyByDistance = new Cesium.NearFarScalar(200.0, 1.0, labelMaxDistance, 0.0);
+const selectedLabelDistanceDisplayCondition = new Cesium.DistanceDisplayCondition(0.0, selectedLabelMaxDistance);
+const labelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.0, labelMaxDistance, 0.35);
+const selectedLabelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.08, selectedLabelMaxDistance, 0.5);
+const labelTranslucencyByDistance = new Cesium.NearFarScalar(300.0, 1.0, labelMaxDistance, 0.0);
+const selectedLabelTranslucencyByDistance = new Cesium.NearFarScalar(300.0, 1.0, selectedLabelMaxDistance, 0.0);
+const labelPixelOffset = new Cesium.Cartesian2(0, -46);
+const selectedLabelPixelOffset = new Cesium.Cartesian2(0, -54);
+const labelBackgroundColor = Cesium.Color.fromAlpha(Cesium.Color.BLACK, 0.82);
+const selectedLabelBackgroundColor = Cesium.Color.fromAlpha(Cesium.Color.fromCssColorString('#062f35'), 0.94);
+const labelFillColor = Cesium.Color.WHITE;
+const selectedLabelFillColor = Cesium.Color.fromCssColorString('#eaffff');
+const markerFocusOffset = new Cesium.HeadingPitchRange(
+    0.0,
+    Cesium.Math.toRadians(config.defaultCameraOffset.pitch),
+    650.0
+);
 const clusterPixelRange = 40;
 const clusterMinimumSize = 3;
 const clusterPinBuilder = new Cesium.PinBuilder();
@@ -530,6 +552,7 @@ const clusterPinCache = new Map();
 let monumentsDataSource = null;
 const loadedTilesets = [];
 let tilesetsVisible = false;
+let selectedMarkerEntity = null;
 
 // Define radio buttons for different entity types
 const radios = {
@@ -681,6 +704,64 @@ function applyAssetPosition(entity, asset, now) {
     entity.position = new Cesium.ConstantPositionProperty(new Cesium.Cartesian3(x, y, z));
 }
 
+function isMarkerEntity(entity) {
+    return Cesium.defined(entity) && Cesium.defined(entity.position) && Cesium.defined(entity.billboard) && Cesium.defined(entity.label);
+}
+
+function setMarkerSelected(entity, selected) {
+    if (!isMarkerEntity(entity)) {
+        return;
+    }
+
+    entity.billboard.width = selected ? selectedMarkerWidth : markerWidth;
+    entity.billboard.height = selected ? selectedMarkerHeight : markerHeight;
+    entity.billboard.scaleByDistance = selected ? selectedMarkerScaleByDistance : markerScaleByDistance;
+    entity.billboard.disableDepthTestDistance = markerDepthTestDistance;
+
+    entity.label.fillColor = selected ? selectedLabelFillColor : labelFillColor;
+    entity.label.outlineWidth = selected ? 4 : 3;
+    entity.label.pixelOffset = selected ? selectedLabelPixelOffset : labelPixelOffset;
+    entity.label.backgroundColor = selected ? selectedLabelBackgroundColor : labelBackgroundColor;
+    entity.label.distanceDisplayCondition = selected ? selectedLabelDistanceDisplayCondition : labelDistanceDisplayCondition;
+    entity.label.scaleByDistance = selected ? selectedLabelScaleByDistance : labelScaleByDistance;
+    entity.label.translucencyByDistance = selected ? selectedLabelTranslucencyByDistance : labelTranslucencyByDistance;
+    entity.label.disableDepthTestDistance = markerDepthTestDistance;
+}
+
+function clearSelectedMarker() {
+    if (selectedMarkerEntity) {
+        setMarkerSelected(selectedMarkerEntity, false);
+        selectedMarkerEntity = null;
+    }
+}
+
+function selectMarkerEntity(entity) {
+    if (!isMarkerEntity(entity)) {
+        clearSelectedMarker();
+        return;
+    }
+
+    if (selectedMarkerEntity && selectedMarkerEntity !== entity) {
+        setMarkerSelected(selectedMarkerEntity, false);
+    }
+
+    selectedMarkerEntity = entity;
+    setMarkerSelected(entity, true);
+}
+
+function focusEntityMarker(entity, duration) {
+    if (!viewer || !isMarkerEntity(entity)) {
+        return;
+    }
+
+    selectMarkerEntity(entity);
+    viewer.selectedEntity = entity;
+    viewer.flyTo(entity, {
+        duration: duration || 1.8,
+        offset: markerFocusOffset
+    });
+}
+
 /**
  * Function to update the visibility of entities based on the selected radio button.
  * @param {string} radioId - The id of the selected radio button.
@@ -727,6 +808,10 @@ function updateEntities(radioId) {
         entity.show = isVisible; // Update entity visibility
     });
 
+    if (selectedMarkerEntity && !selectedMarkerEntity.show) {
+        clearSelectedMarker();
+    }
+
 }
 
 /**
@@ -758,6 +843,7 @@ function configureClustering(dataSource) {
         cluster.billboard.show = true;
         cluster.billboard.image = getClusterPin(clusteredEntities.length);
         cluster.billboard.verticalOrigin = Cesium.VerticalOrigin.BOTTOM;
+        cluster.billboard.disableDepthTestDistance = markerDepthTestDistance;
         const clusterId = {
             heritageCluster: true,
             entities: clusteredEntities
@@ -869,30 +955,33 @@ async function loadGeoJson() {
                 // Define the marker
                 entity.billboard = new Cesium.BillboardGraphics({
                     image: 'Images/marker.png',
-                    width: 32,
-                    height: 32,
+                    width: markerWidth,
+                    height: markerHeight,
                     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                    pixelOffset: markerPixelOffset,
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-                    scaleByDistance: markerScaleByDistance
+                    scaleByDistance: markerScaleByDistance,
+                    disableDepthTestDistance: markerDepthTestDistance
                 });
 
                 // Define the marker label
                 entity.label = new Cesium.LabelGraphics({
                     text: name,
-                    font: '12px "Segoe UI", Arial, sans-serif',
-                    fillColor: Cesium.Color.WHITE,
+                    font: '600 14px "Segoe UI", Arial, sans-serif',
+                    fillColor: labelFillColor,
                     outlineColor: Cesium.Color.BLACK,
-                    outlineWidth: 2,
+                    outlineWidth: 3,
                     style: Cesium.LabelStyle.FILL_AND_OUTLINE,
                     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                    pixelOffset: new Cesium.Cartesian2(0, -36),
+                    pixelOffset: labelPixelOffset,
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
                     showBackground: true,
-                    backgroundColor: Cesium.Color.fromAlpha(Cesium.Color.BLACK, 0.6),
-                    backgroundPadding: new Cesium.Cartesian2(6, 4),
+                    backgroundColor: labelBackgroundColor,
+                    backgroundPadding: new Cesium.Cartesian2(8, 6),
                     distanceDisplayCondition: labelDistanceDisplayCondition,
                     scaleByDistance: labelScaleByDistance,
-                    translucencyByDistance: labelTranslucencyByDistance
+                    translucencyByDistance: labelTranslucencyByDistance,
+                    disableDepthTestDistance: markerDepthTestDistance
                 });
 
                 // If the viewer3d property is "ja", append its kurzbezeichnung to the story map box
@@ -911,33 +1000,7 @@ async function loadGeoJson() {
 
                     // Add click event to each name that moves the camera to the entity's position
                     pElement.addEventListener('click', () => {
-                        // REVERT to default basemap if we are in Google mode (assuming user didn't manually switch)
-                        // We simply force switch back to default if currently Google
-                        if (currentBaseMapId === 'google-photorealistic') {
-                            const baseMapSelect = document.getElementById('baseMapSelect');
-                            const baseMapNote = document.getElementById('baseMapNote');
-                            setBaseLayerById(viewer, config.baseMapDefaultId, baseMapNote, baseMapSelect);
-                        }
-
-                        const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
-
-                        // Use config for camera offsets
-                        const offset = config.defaultCameraOffset;
-                        const cameraPosition = new Cesium.Cartesian3(
-                            markerPosition.x + offset.x,
-                            markerPosition.y + offset.y,
-                            markerPosition.z + offset.height
-                        );
-
-                        viewer.camera.flyTo({
-                            destination: cameraPosition,
-                            orientation: {
-                                heading: Cesium.Math.toRadians(0.0),
-                                pitch: Cesium.Math.toRadians(offset.pitch),
-                                roll: 0.0
-                            },
-                            duration: 3
-                        });
+                        focusEntityMarker(entity, 1.8);
                     });
 
                     fragment.appendChild(pElement);
@@ -1159,6 +1222,7 @@ async function initViewer() {
     viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(movement) {
         const pickedObject = viewer.scene.pick(movement.position);
         if (!Cesium.defined(pickedObject)) {
+            clearSelectedMarker();
             return;
         }
 
@@ -1169,6 +1233,7 @@ async function initViewer() {
         }
 
         if (Cesium.defined(pickedId)) {
+            selectMarkerEntity(pickedId);
             showEntityInfo(pickedId);
             // Use central panel management to ensure exclusivity
             openPanel('info');
@@ -1178,43 +1243,18 @@ async function initViewer() {
     // Move the camera to the marker on double-click
     viewer.screenSpaceEventHandler.setInputAction(function onDoubleClick(movement) {
         const pickedObject = viewer.scene.pick(movement.position);
-        if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
-            const entity = pickedObject.id;
-            const markerPosition = entity.position.getValue(Cesium.JulianDate.now());
+        if (!Cesium.defined(pickedObject)) {
+            return;
+        }
 
-            const offset = config.defaultCameraOffset;
-            let x = offset.x;
-            let y = offset.y;
-            let heightOffset = offset.height;
+        const pickedId = pickedObject.id || (pickedObject.primitive && pickedObject.primitive.id);
+        if (pickedId && pickedId.heritageCluster) {
+            zoomToClusterEntities(pickedId.entities);
+            return;
+        }
 
-            const monumentId = getMonumentId(pickedObject.id);
-            if (monumentId !== null && monumentId !== undefined) {
-                const asset = assetsByMonument.get(String(monumentId));
-                if (asset) {
-                    const offsetX = getNumericValue(asset.x);
-                    const offsetY = getNumericValue(asset.y);
-                    const offsetHeight = getNumericValue(asset.heightOffset);
-                    if (offsetX !== null) x = offsetX;
-                    if (offsetY !== null) y = offsetY;
-                    if (offsetHeight !== null) heightOffset = offsetHeight;
-                }
-            }
-
-            const cameraPosition = new Cesium.Cartesian3(
-                markerPosition.x + x,
-                markerPosition.y + y,
-                markerPosition.z + heightOffset
-            );
-
-            viewer.camera.flyTo({
-                destination: cameraPosition,
-                orientation: {
-                    heading: Cesium.Math.toRadians(0.0),
-                    pitch: Cesium.Math.toRadians(offset.pitch),
-                    roll: 0.0
-                },
-                duration: 3
-            });
+        if (Cesium.defined(pickedId)) {
+            focusEntityMarker(pickedId, 1.8);
         }
     }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 }
@@ -1334,7 +1374,7 @@ function openPanel(panelKey) {
 
     // Open the requested panel
     if (panelEl) {
-        panelEl.style.display = 'block';
+        panelEl.style.display = panelKey === 'aichat' ? 'flex' : 'block';
         panelEl.style.animation = 'panel-enter 0.3s ease';
     }
     if (buttonEl) buttonEl.classList.add('active');

@@ -311,7 +311,116 @@ class HeritageAIChat {
     // --- Command Handlers ---
 
     getHelpMessage() {
-        return "I can help you:\n- Navigation: 'Fly to Cologne', 'Go to Cathedral'\n- Layers: 'Show Aerial', 'Show 3D Buildings'\n- Filters: 'Show only 3D models'\n- Tours: 'Start tour'\n- System: 'Reset chat'";
+        return "I can help you:\n- Navigation: 'Fly to Cologne', 'Go to Cathedral', 'Fly to Ostermannbrunnen'\n- Layers: 'Show Aerial', 'Show 3D Buildings'\n- Filters: 'Show only 3D models'\n- Tours: 'Start tour'\n- System: 'Reset chat'";
+    }
+
+    normalizeSearchText(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s.-]/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    getPropertyValue(entity, propertyName) {
+        if (!entity || !entity.properties || !entity.properties[propertyName]) {
+            return '';
+        }
+
+        const property = entity.properties[propertyName];
+        if (typeof property.getValue === 'function') {
+            return property.getValue(Cesium.JulianDate.now()) || '';
+        }
+
+        return property || '';
+    }
+
+    getMonumentEntities() {
+        const entities = [];
+        const dataSources = this.viewer && this.viewer.dataSources;
+
+        if (!dataSources) {
+            return entities;
+        }
+
+        for (let i = 0; i < dataSources.length; i += 1) {
+            const dataSource = dataSources.get(i);
+            if (dataSource && dataSource.entities && dataSource.entities.values) {
+                entities.push(...dataSource.entities.values);
+            }
+        }
+
+        return entities;
+    }
+
+    getEntitySearchText(entity) {
+        return [
+            'kurzbezeichnung',
+            'strasse',
+            'hausnummer',
+            'plz',
+            'stadtbezirk',
+            'kategorie',
+            'denkmallistennummer'
+        ]
+            .map((propertyName) => this.getPropertyValue(entity, propertyName))
+            .filter(Boolean)
+            .join(' ');
+    }
+
+    findMonumentMatch(query) {
+        const normalizedQuery = this.normalizeSearchText(query);
+        if (!normalizedQuery) {
+            return null;
+        }
+
+        const queryTerms = normalizedQuery.split(' ').filter((term) => term.length > 1);
+        let bestMatch = null;
+        let bestScore = 0;
+
+        this.getMonumentEntities().forEach((entity) => {
+            if (!entity || !entity.position) {
+                return;
+            }
+
+            const shortTitle = this.normalizeSearchText(this.getPropertyValue(entity, 'kurzbezeichnung'));
+            const monumentNumber = this.normalizeSearchText(this.getPropertyValue(entity, 'denkmallistennummer'));
+            const searchText = this.normalizeSearchText(this.getEntitySearchText(entity));
+            let score = 0;
+
+            if (shortTitle === normalizedQuery || monumentNumber === normalizedQuery) {
+                score += 120;
+            } else if (shortTitle.includes(normalizedQuery)) {
+                score += 90;
+            } else if (searchText.includes(normalizedQuery)) {
+                score += 65;
+            }
+
+            if (queryTerms.length > 0 && queryTerms.every((term) => searchText.includes(term))) {
+                score += 35 + queryTerms.length * 5;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = entity;
+            }
+        });
+
+        return bestScore >= 35 ? bestMatch : null;
+    }
+
+    flyToEntity(entity) {
+        this.viewer.selectedEntity = entity;
+        this.viewer.flyTo(entity, {
+            duration: 1.6,
+            offset: new Cesium.HeadingPitchRange(
+                0,
+                Cesium.Math.toRadians(-45),
+                650
+            )
+        });
     }
 
     async handleFlyTo(text) {
@@ -327,20 +436,43 @@ class HeritageAIChat {
             return "Flying to Cologne.";
         }
 
+        const monumentMatch = this.findMonumentMatch(cleanText);
+        if (monumentMatch) {
+            const title = String(this.getPropertyValue(monumentMatch, 'kurzbezeichnung') || cleanText)
+                .trim()
+                .replace(/^["']+|["']+$/g, '');
+            this.flyToEntity(monumentMatch);
+            return `Flying to ${title}.`;
+        }
+
         // Geocoder fallback
         try {
-            const geocoder = new Cesium.IonGeocodeProvider({ scene: this.viewer.scene });
+            if (!Cesium.IonGeocoderService) {
+                return `I couldn't find "${cleanText}" in the monument database. External Cesium search is unavailable right now.`;
+            }
+
+            const geocoder = new Cesium.IonGeocoderService({ scene: this.viewer.scene });
             const results = await geocoder.geocode(cleanText);
             if (results && results.length > 0) {
                 const bestResult = results[0];
+                const normalizedQuery = this.normalizeSearchText(cleanText);
+                const resultName = this.normalizeSearchText(bestResult.displayName);
+                const queryTerms = normalizedQuery.split(' ').filter((term) => term.length > 2);
+                const hasUsefulMatch = resultName.includes(normalizedQuery)
+                    || (queryTerms.length > 0 && queryTerms.every((term) => resultName.includes(term)));
+
+                if (!hasUsefulMatch) {
+                    return `I couldn't find "${cleanText}" in the monument database or Cesium search.`;
+                }
+
                 this.viewer.camera.flyTo({ destination: bestResult.destination });
                 return `Flying to ${bestResult.displayName}...`;
             } else {
-                return `I couldn't find "${cleanText}".`;
+                return `I couldn't find "${cleanText}" in the monument database or Cesium search.`;
             }
         } catch (e) {
             console.error(e);
-            return "Search unavailable right now.";
+            return `I couldn't find "${cleanText}" in the monument database. External Cesium search is unavailable right now.`;
         }
     }
 

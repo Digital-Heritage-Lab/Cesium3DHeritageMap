@@ -5,12 +5,15 @@
     right: 20px;
     width: 380px;
     height: 550px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
     z-index: 2000;
     padding: 0;
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+    background: rgba(12, 19, 32, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 20px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(20px) saturate(180%);
@@ -27,7 +30,8 @@
     #aiChatPanel {
         width: 90vw;
         right: 5vw;
-        height: 60vh;
+        height: 68vh;
+        max-height: calc(100vh - 110px);
         bottom: 80px;
     }
 }
@@ -36,7 +40,7 @@
     margin: 0;
     padding: 16px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(30, 41, 59, 0.5);
+    background: rgba(30, 41, 59, 0.82);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -48,11 +52,9 @@
     margin: 0;
     font-size: 16px;
     font-weight: 700;
-    background: linear-gradient(135deg, #60a5fa, #a855f7);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
+    color: #e8f3ff;
+    letter-spacing: 0;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
 }
 
 .header-actions {
@@ -82,9 +84,9 @@
 }
 
 .clear-chat-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #f1f5f9;
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 12px;
@@ -104,6 +106,7 @@
 
 #aiChatHistory {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 24px 20px;
@@ -167,6 +170,7 @@
     font-size: 14px;
     line-height: 1.55;
     max-width: 85%;
+    overflow-wrap: anywhere;
     position: relative;
     animation: messageSlide 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
@@ -228,25 +232,35 @@
 
 /* Quick Actions */
 #aiQuickActions {
-    padding: 0 20px 12px 20px;
+    padding: 12px 20px;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     flex-shrink: 0;
-    scrollbar-width: none;
-    /* Hide for Firefox */
+    max-height: 92px;
+    background: rgba(12, 19, 32, 0.88);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }
 
 #aiQuickActions::-webkit-scrollbar {
-    display: none;
-    /* Hide for Chrome/Safari */
+    width: 6px;
+    height: 6px;
+}
+
+#aiQuickActions::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
 }
 
 .quick-action-btn {
     white-space: nowrap;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #f1f5f9;
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 12px;
@@ -264,6 +278,8 @@
 
 #aiInputArea {
     flex-shrink: 0;
+    box-sizing: border-box;
+    width: 100%;
     padding: 20px;
     background: rgba(15, 23, 42, 0.8);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -274,8 +290,10 @@
 
 #aiChatInput {
     flex: 1;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 0;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 25px;
     padding: 12px 20px;
     color: white;
@@ -338,4 +356,30 @@
 #closeAiChatPanel:hover {
     background: rgba(255, 255, 255, 0.1);
     color: white;
+}
+
+@media (max-width: 480px) {
+    #aiChatPanel {
+        width: calc(100vw - 24px);
+        right: 12px;
+        bottom: 72px;
+        height: 70vh;
+        max-height: calc(100vh - 92px);
+        border-radius: 16px;
+    }
+
+    #aiChatHeader,
+    #aiInputArea {
+        padding: 14px;
+    }
+
+    #aiQuickActions {
+        padding: 10px 14px;
+        max-height: 86px;
+    }
+
+    .quick-action-btn {
+        flex: 1 1 calc(50% - 8px);
+        padding: 8px 10px;
+    }
 }
