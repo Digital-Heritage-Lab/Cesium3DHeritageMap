@@ -18,7 +18,10 @@
  * - Text: Pure white (#ffffff) and soft gray (#b8c5db)
  */
 
+/* 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+*/
+@import "google_fonts.css";
 
 :root {
     /* Colors */

@@ -76,6 +76,8 @@ let googlePhotorealisticTileset = null;
 let googlePhotorealisticTilesetPromise = null;
 let googlePhotorealisticSwitchToken = 0;
 let osmBuildingsTileset = null;
+let lod2TilesetWest = null;
+let lod2TilesetEast = null;
 
 async function createTerrainProvider() {
     if (!enable3DTiles) {
@@ -392,6 +394,57 @@ async function loadOsmBuildings() {
     return osmBuildingsTileset;
 }
 
+async function Lod2TilesetWest() {
+    if (lod2TilesetWest) return lod2TilesetWest;
+
+    try {
+        const resourceWest = await Cesium.IonResource.fromAssetId(4382415, {
+            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c'
+        });
+        lod2TilesetWest = await Cesium.Cesium3DTileset.fromUrl(resourceWest);
+
+        if (lod2TilesetWest) {
+            // Style: Grey color
+            lod2TilesetWest.style = new Cesium.Cesium3DTileStyle({
+                color: "color('gray')"
+            });
+            lod2TilesetWest.show = false; // Hidden by default
+            viewer.scene.primitives.add(lod2TilesetWest);
+        }
+
+    } catch (e) {
+        console.warn('Error loading Lod2 West Buildings:', e);
+    }
+    return lod2TilesetWest;
+}
+
+async function Lod2TilesetEast() {
+    if (lod2TilesetEast) return lod2TilesetEast;
+
+    try {
+
+        // east cologne
+        const resourceEast = await Cesium.IonResource.fromAssetId(4383827, {
+            accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI'
+        });
+        lod2TilesetEast = await Cesium.Cesium3DTileset.fromUrl(resourceEast);
+
+
+        if (lod2TilesetEast) {
+            // Style: Grey color
+            lod2TilesetEast.style = new Cesium.Cesium3DTileStyle({
+                color: "color('gray')"
+            });
+            lod2TilesetEast.show = false; // Hidden by default
+            viewer.scene.primitives.add(lod2TilesetEast);
+        }
+
+    } catch (e) {
+        console.warn('Error loading Lod2 East Buildings:', e);
+    }
+    return lod2TilesetEast;
+}
+
 function updateBaseMapNote(noteElement, baseMapId) {
     if (!noteElement) {
         return;
@@ -585,7 +638,7 @@ for (const radioId in radios) {
 
 }
 
-// Setup independent LOD Data toggle (Checkbox)
+// Setup independent LOD Data toggle (Checkbox) OpenStreetMap Buildings
 const lodCheckbox = document.getElementById('lodData');
 if (lodCheckbox) {
     lodCheckbox.addEventListener('change', (e) => {
@@ -594,6 +647,29 @@ if (lodCheckbox) {
         }
 
         const label = lodCheckbox.closest('label');
+        if (label) {
+            if (e.target.checked) {
+                label.classList.add('active');
+            } else {
+                label.classList.remove('active');
+            }
+        }
+    });
+}
+
+// Setup independent LOD2 Data toggle (Checkbox)
+const lodCheckboxGeobasis = document.getElementById('lodDataGeobasis');
+if (lodCheckboxGeobasis) {
+    lodCheckboxGeobasis.addEventListener('change', (e) => {
+        
+        
+        if (lod2TilesetWest) {
+            lod2TilesetWest.show = e.target.checked;
+        }
+        if (lod2TilesetEast) {            
+            lod2TilesetEast.show = e.target.checked;
+        }
+        const label = lodCheckboxGeobasis.closest('label');
         if (label) {
             if (e.target.checked) {
                 label.classList.add('active');
@@ -1182,6 +1258,9 @@ async function initViewer() {
 
     assetsReady = loadAssets();
     loadOsmBuildings(); // Start loading building data
+    Lod2TilesetEast(); // Start loading LOD2 East data
+    Lod2TilesetWest(); // Start loading LOD2 West data
+
 
     const loadingScreen = document.getElementById('loadingScreen');
 

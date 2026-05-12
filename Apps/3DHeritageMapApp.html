@@ -27,15 +27,16 @@
 
     <!-- Options box -->
     <div id="optionsBox" class="panel">
-        <h2>Filter Options</h2>
+        <h2>Filter Options for Markers</h2>
+        <p>The following records have already been entered into <a style="color:aqua" target="_blank" href="https://codeforcologne.github.io/Denkmal-4D-Koeln/">Denkmal 4D</a> for these monuments.</p>
         <div class="filter-group">
             <label class="active" data-filter="allMarkers">
-                <span>All Markers</span>
+                <span>All</span>
                 <input type="radio" name="option" id="allMarkers" checked />
                 <span class="radio-indicator"></span>
             </label>
             <label data-filter="viewer3d">
-                <span>3D Viewer Models</span>
+                <span>3D Models in this Viewer</span>
                 <input type="radio" name="option" id="viewer3d" />
                 <span class="radio-indicator"></span>
             </label>
@@ -55,12 +56,21 @@
                 <span class="radio-indicator"></span>
             </label>
             <label data-filter="openstreetmap">
-                <span>OpenStreetMap</span>
+                <span>OpenStreetMap Records</span>
                 <input type="radio" name="option" id="filter_openstreetmap" />
                 <span class="radio-indicator"></span>
             </label>
+
+        </div>
+        <h2>Buildings</h2>
+        <div>
+            <label data-filter="lodDataGeobasis">
+                <span>LoD2 Geobasis.NRW</span>
+                <input type="checkbox" id="lodDataGeobasis" />
+                <span class="radio-indicator"></span>
+            </label>
             <label data-filter="lodData">
-                <span>LOD Data</span>
+                <span>OpenStreetMap</span>
                 <input type="checkbox" id="lodData" />
                 <span class="radio-indicator"></span>
             </label>
@@ -148,7 +158,8 @@
                 <p>Ziel: Forschung, Vermittlung und Erhalt des kulturellen Erbes.</p>
                 <p style="margin-top: 1rem; font-weight: 600; color: var(--primary-400);">
                     Powered by <a href="https://digitalheritagelab.com/" target="_blank"
-                        style="color: inherit; text-decoration: underline;">Team Digital Heritage Lab</a> and OK Lab
+                        style="color: inherit; text-decoration: underline;">Team Digital Heritage Lab</a>, Ertan Özcan
+                    and OK Lab
                     Köln
                 </p>
 
