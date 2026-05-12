@@ -1,28 +1,23 @@
-import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distDir = path.join(rootDir, "dist");
 
-const runtimeFiles = [
-    "Apps/3DHeritageMapApp.html",
-    "Apps/3DHeritageMapApp_AI_Test.html",
-    "Apps/3DHeritageScripts.js",
-    "Apps/3DHeritageStyles.css",
-    "Apps/AIChatBot.js",
-    "Apps/AIChatStyles.css",
-    "Apps/config.js",
-    "Apps/google_fonts.css",
-    "Apps/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0I5nvwU.woff2",
-    "Apps/V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2"
-];
-
+const runtimeFileExtensions = new Set([".html", ".js", ".css", ".woff", ".woff2"]);
+const runtimeFileSourceDirs = ["Apps"];
 const runtimeDirectories = [
     "Apps/Data",
     "Apps/Images",
     "Build/Cesium",
     "DBApp"
+];
+
+const requiredArtifacts = [
+    "Apps/3DHeritageMapApp.html",
+    "Apps/3DHeritageScripts.js",
+    "Build/Cesium/Cesium.js"
 ];
 
 function assertInsideRoot(targetPath) {
@@ -55,6 +50,42 @@ async function copyPath(relativePath) {
     return getPathSize(destination);
 }
 
+async function discoverRuntimeFiles() {
+    const discovered = [];
+    for (const sourceDir of runtimeFileSourceDirs) {
+        const absoluteDir = path.join(rootDir, sourceDir);
+        if (!(await exists(absoluteDir))) {
+            continue;
+        }
+        const entries = await readdir(absoluteDir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile()) {
+                continue;
+            }
+            const ext = path.extname(entry.name).toLowerCase();
+            if (!runtimeFileExtensions.has(ext)) {
+                continue;
+            }
+            discovered.push(path.posix.join(sourceDir, entry.name));
+        }
+    }
+    return discovered.sort();
+}
+
+async function assertRequiredArtifacts() {
+    const missing = [];
+    for (const relativePath of requiredArtifacts) {
+        try {
+            await access(path.join(distDir, relativePath));
+        } catch {
+            missing.push(relativePath);
+        }
+    }
+    if (missing.length > 0) {
+        throw new Error(`Required dist artifacts missing: ${missing.join(", ")}`);
+    }
+}
+
 async function getPathSize(targetPath) {
     const stats = await stat(targetPath);
     if (!stats.isDirectory()) {
@@ -85,11 +116,10 @@ async function main() {
     await mkdir(distDir, { recursive: true });
 
     let totalBytes = 0;
-    const productionIndex = `<!doctype html>
+    const landingIndex = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=/Apps/3DHeritageMapApp.html">
   <title>Cesium 3D Heritage Map</title>
 </head>
 <body>
@@ -97,15 +127,19 @@ async function main() {
 </body>
 </html>
 `;
-    await writeFile(path.join(distDir, "index.html"), productionIndex, "utf8");
-    totalBytes += Buffer.byteLength(productionIndex);
+    await writeFile(path.join(distDir, "index.html"), landingIndex, "utf8");
+    totalBytes += Buffer.byteLength(landingIndex);
 
+    const runtimeFiles = await discoverRuntimeFiles();
     for (const relativePath of [...runtimeFiles, ...runtimeDirectories]) {
         totalBytes += await copyPath(relativePath);
     }
 
+    await assertRequiredArtifacts();
+
     console.log(`Prepared Netlify dist at ${distDir}`);
     console.log(`Runtime artifact size: ${formatBytes(totalBytes)}`);
+    console.log(`Runtime files copied: ${runtimeFiles.length}`);
 }
 
 main().catch((error) => {

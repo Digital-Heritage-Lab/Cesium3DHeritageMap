@@ -1,6 +1,14 @@
 // Configuration
+// SECURITY: All Ion access tokens below are shipped to every browser. They MUST be
+// referer-restricted in the Cesium Ion console (Access Tokens -> Allowed URLs) to the
+// production Netlify domain (and any staging domains). Rotate here if any restriction
+// is missing or if a token is suspected of being abused.
 const config = {
     ionAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMjhiN2RhOC1lYThlLTQ3NGEtYWQ3NC05YjRmOTI5M2M0OWEiLCJpZCI6NzgzODEsImlhdCI6MTcxMDc5ODQ0MH0.nuQD0pwTIy_aHKIqEGLzrhxCCCelkCHyNeJURm3v-Q8",
+    lod2WestIonAssetId: 4382415,
+    lod2WestIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c",
+    lod2EastIonAssetId: 4383827,
+    lod2EastIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI",
     monumentsRemoteUrl: 'https://opendem.info/cgi-bin/getDenkmal.py',
     monumentsLocalUrl: 'Data/denkmaeler.json',
     assetsUrl: 'Data/assets.json',
@@ -518,8 +526,8 @@ async function Lod2TilesetWest() {
     }
 
     lod2TilesetWestPromise = loadLod2Tileset(
-        4382415,
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c',
+        config.lod2WestIonAssetId,
+        config.lod2WestIonToken,
         'Lod2 West'
     )
         .then((tileset) => {
@@ -542,8 +550,8 @@ async function Lod2TilesetEast() {
     }
 
     lod2TilesetEastPromise = loadLod2Tileset(
-        4383827,
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI',
+        config.lod2EastIonAssetId,
+        config.lod2EastIonToken,
         'Lod2 East'
     )
         .then((tileset) => {
