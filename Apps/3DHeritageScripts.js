@@ -25,9 +25,13 @@ const config = {
     baseMapFallbackId: 'ion-aerial-labels',
     googlePhotorealisticStartupTimeoutMs: 7000,
     googlePhotorealisticAutoStart: false,
-    googlePhotorealisticMaximumScreenSpaceError: 32,
-    googlePhotorealisticCacheMB: 128,
-    googlePhotorealisticCacheOverflowMB: 64,
+    googlePhotorealisticInitialMaximumScreenSpaceError: 64,
+    googlePhotorealisticRefinedMaximumScreenSpaceError: 32,
+    googlePhotorealisticCacheMB: 384,
+    googlePhotorealisticCacheOverflowMB: 128,
+    googlePhotorealisticMobileCacheMB: 96,
+    googlePhotorealisticMobileCacheOverflowMB: 32,
+    googlePhotorealisticEnableCollision: false,
     cologne: {
         longitude: 6.9799,
         latitude: 50.9360,
@@ -45,6 +49,21 @@ const config = {
 
 // Cesium Ion access token
 Cesium.Ion.defaultAccessToken = config.ionAccessToken;
+
+function getConfigNumber(value, fallback) {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function shouldUseMobileGooglePhotorealisticBudget() {
+    const isSmallViewport = window.matchMedia
+        ? window.matchMedia('(max-width: 767px)').matches
+        : false;
+    const deviceMemory = navigator.deviceMemory ? Number(navigator.deviceMemory) : Number.POSITIVE_INFINITY;
+    const isLowMemoryDevice = Number.isFinite(deviceMemory) && deviceMemory > 0 && deviceMemory <= 4;
+
+    return isSmallViewport || isLowMemoryDevice;
+}
 
 const enable3DTiles = config.enable3DTiles;
 const monumentsRemoteUrl = config.monumentsRemoteUrl;
@@ -68,13 +87,29 @@ const googlePhotorealisticAutoStart = config.googlePhotorealisticAutoStart !== f
 const googlePhotorealisticStartupTimeoutMs = Number.isFinite(Number(config.googlePhotorealisticStartupTimeoutMs))
     ? Number(config.googlePhotorealisticStartupTimeoutMs)
     : 7000;
-const googlePhotorealisticMaximumScreenSpaceError = Number.isFinite(Number(config.googlePhotorealisticMaximumScreenSpaceError))
-    ? Number(config.googlePhotorealisticMaximumScreenSpaceError)
-    : 32;
-const googlePhotorealisticCacheBytes = (config.googlePhotorealisticCacheMB || 128) * 1024 * 1024;
-const googlePhotorealisticCacheOverflowBytes = (config.googlePhotorealisticCacheOverflowMB || 64) * 1024 * 1024;
+const fallbackGooglePhotorealisticMaximumScreenSpaceError = getConfigNumber(
+    config.googlePhotorealisticMaximumScreenSpaceError,
+    32
+);
+const googlePhotorealisticInitialMaximumScreenSpaceError = getConfigNumber(
+    config.googlePhotorealisticInitialMaximumScreenSpaceError,
+    Math.max(fallbackGooglePhotorealisticMaximumScreenSpaceError, 48)
+);
+const googlePhotorealisticRefinedMaximumScreenSpaceError = getConfigNumber(
+    config.googlePhotorealisticRefinedMaximumScreenSpaceError,
+    fallbackGooglePhotorealisticMaximumScreenSpaceError
+);
+const useMobileGooglePhotorealisticBudget = shouldUseMobileGooglePhotorealisticBudget();
+const googlePhotorealisticCacheMB = useMobileGooglePhotorealisticBudget
+    ? getConfigNumber(config.googlePhotorealisticMobileCacheMB, 96)
+    : getConfigNumber(config.googlePhotorealisticCacheMB, 384);
+const googlePhotorealisticCacheOverflowMB = useMobileGooglePhotorealisticBudget
+    ? getConfigNumber(config.googlePhotorealisticMobileCacheOverflowMB, 32)
+    : getConfigNumber(config.googlePhotorealisticCacheOverflowMB, 128);
+const googlePhotorealisticCacheBytes = googlePhotorealisticCacheMB * 1024 * 1024;
+const googlePhotorealisticCacheOverflowBytes = googlePhotorealisticCacheOverflowMB * 1024 * 1024;
 const googlePhotorealisticEnableCollision = config.googlePhotorealisticEnableCollision === undefined
-    ? true
+    ? false
     : config.googlePhotorealisticEnableCollision;
 const googleMapsApiKey = (config.googleMapsApiKey || '').trim();
 if (googleMapsApiKey && Cesium.GoogleMaps) {
@@ -105,12 +140,15 @@ const cologneView = {
 let viewer = null;
 let currentBaseLayer = null;
 let currentBaseMapId = null;
+let currentImageryBaseMapId = null;
+let currentBaseLayerDetachedForPhotorealistic = false;
 let baseMapSwitchToken = 0;
 let googlePhotorealisticTileset = null;
 let googlePhotorealisticTilesetPromise = null;
 let googlePhotorealisticSwitchToken = 0;
 let deferredInitialPhotorealistic = false;
 let googlePhotorealisticStartupAttempted = false;
+let googlePhotorealisticRefinementTimerId = null;
 let osmBuildingsTileset = null;
 let osmBuildingsTilesetPromise = null;
 let lod2TilesetWest = null;
@@ -263,6 +301,7 @@ async function createBaseLayer() {
     const baseLayer = await createBaseLayerFromId(resolvedId);
     if (baseLayer) {
         currentBaseMapId = resolvedId;
+        currentImageryBaseMapId = resolvedId;
         return baseLayer;
     }
 
@@ -271,6 +310,7 @@ async function createBaseLayer() {
         return null;
     }
     currentBaseMapId = getFallbackBaseMapId();
+    currentImageryBaseMapId = currentBaseMapId;
     return Cesium.ImageryLayer.fromProviderAsync(fallbackProvider);
 }
 
@@ -323,13 +363,69 @@ function setupImageryFallbackForLayer(viewerInstance, imageryLayer) {
     applyFallback(imageryLayer.imageryProvider);
 }
 
-async function createGooglePhotorealisticTileset() {
-    const options = {
+function requestSceneRender() {
+    if (viewer && viewer.scene && viewer.scene.requestRender) {
+        viewer.scene.requestRender();
+    }
+}
+
+function setCurrentImageryLayerVisible(visible) {
+    if (currentBaseLayer) {
+        currentBaseLayer.show = visible;
+    }
+    if (!viewer || !currentBaseLayer || !viewer.imageryLayers) {
+        return;
+    }
+
+    const layerIsAttached = viewer.imageryLayers.contains(currentBaseLayer);
+    if (!visible && layerIsAttached) {
+        viewer.imageryLayers.remove(currentBaseLayer, false);
+        currentBaseLayerDetachedForPhotorealistic = true;
+        return;
+    }
+    if (visible && currentBaseLayerDetachedForPhotorealistic && !layerIsAttached) {
+        viewer.imageryLayers.add(currentBaseLayer, 0);
+        currentBaseLayerDetachedForPhotorealistic = false;
+    }
+}
+
+function createGooglePhotorealisticTilesetOptions() {
+    const foveatedRelaxation = Math.min(
+        24.0,
+        googlePhotorealisticInitialMaximumScreenSpaceError
+    );
+
+    return {
         cacheBytes: googlePhotorealisticCacheBytes,
         maximumCacheOverflowBytes: googlePhotorealisticCacheOverflowBytes,
-        maximumScreenSpaceError: googlePhotorealisticMaximumScreenSpaceError,
-        enableCollision: googlePhotorealisticEnableCollision
+        maximumScreenSpaceError: googlePhotorealisticInitialMaximumScreenSpaceError,
+        enableCollision: googlePhotorealisticEnableCollision,
+        cullRequestsWhileMoving: true,
+        cullRequestsWhileMovingMultiplier: 100.0,
+        preloadWhenHidden: false,
+        preloadFlightDestinations: false,
+        preferLeaves: false,
+        dynamicScreenSpaceError: true,
+        dynamicScreenSpaceErrorDensity: 2.5e-4,
+        dynamicScreenSpaceErrorFactor: 32.0,
+        dynamicScreenSpaceErrorHeightFalloff: 0.25,
+        progressiveResolutionHeightFraction: 0.45,
+        foveatedScreenSpaceError: true,
+        foveatedConeSize: 0.15,
+        foveatedMinimumScreenSpaceErrorRelaxation: foveatedRelaxation,
+        foveatedTimeDelay: 0.6,
+        skipLevelOfDetail: true,
+        baseScreenSpaceError: 1024,
+        skipScreenSpaceErrorFactor: 16,
+        skipLevels: 1,
+        immediatelyLoadDesiredLevelOfDetail: false,
+        loadSiblings: false,
+        showCreditsOnScreen: false
     };
+}
+
+async function createGooglePhotorealisticTileset() {
+    const options = createGooglePhotorealisticTilesetOptions();
 
     if (!googlePhotorealisticIonAssetId) {
         throw new Error('Google Photorealistic 3D tileset is unavailable.');
@@ -340,7 +436,7 @@ async function createGooglePhotorealisticTileset() {
     }
 
     if (Cesium.createGooglePhotorealistic3DTileset) {
-        return Cesium.createGooglePhotorealistic3DTileset(options);
+        return Cesium.createGooglePhotorealistic3DTileset(undefined, options);
     }
 
     const resource = await Cesium.IonResource.fromAssetId(googlePhotorealisticIonAssetId);
@@ -399,38 +495,115 @@ function withTimeout(promise, timeoutMs, message) {
 }
 
 function restoreFallbackGlobe() {
+    if (googlePhotorealisticRefinementTimerId) {
+        window.clearTimeout(googlePhotorealisticRefinementTimerId);
+        googlePhotorealisticRefinementTimerId = null;
+    }
     if (viewer && viewer.scene && viewer.scene.globe) {
         viewer.scene.globe.show = true;
     }
+    setCurrentImageryLayerVisible(true);
     if (googlePhotorealisticTileset) {
         googlePhotorealisticTileset.show = false;
     }
 }
 
-function clearGoogleLoadingNoteWhenReady(tileset, noteElement, switchToken) {
-    if (!tileset || !tileset.initialTilesLoaded || !noteElement) {
-        return;
+function waitForGoogleInitialTiles(tileset, timeoutMs) {
+    if (!tileset) {
+        return Promise.resolve(false);
+    }
+    if (tileset.tilesLoaded) {
+        return Promise.resolve(true);
     }
 
-    const clearNote = () => {
-        if (switchToken === googlePhotorealisticSwitchToken) {
-            setBaseMapNoteText(noteElement, '');
+    return new Promise((resolve) => {
+        let settled = false;
+        let intervalId = null;
+        let timeoutId = null;
+        let removeInitialTilesListener = null;
+
+        const finish = (ready) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            if (intervalId) {
+                window.clearInterval(intervalId);
+            }
+            if (timeoutId) {
+                window.clearTimeout(timeoutId);
+            }
+            if (removeInitialTilesListener) {
+                removeInitialTilesListener();
+            }
+            resolve(ready);
+        };
+
+        try {
+            removeInitialTilesListener = tileset.initialTilesLoaded.addEventListener(() => {
+                finish(true);
+            });
+        } catch (error) {
+            console.warn('Google Photorealistic readiness listener failed.', error);
         }
-    };
 
-    if (tileset.root) {
-        clearNote();
+        intervalId = window.setInterval(() => {
+            if (tileset.tilesLoaded) {
+                finish(true);
+            }
+        }, 250);
+
+        timeoutId = window.setTimeout(() => {
+            finish(false);
+        }, timeoutMs || 15000);
+    });
+}
+
+function scheduleGooglePhotorealisticRefinement(tileset, switchToken) {
+    if (
+        !tileset ||
+        googlePhotorealisticRefinedMaximumScreenSpaceError >= googlePhotorealisticInitialMaximumScreenSpaceError
+    ) {
         return;
     }
 
-    try {
-        const removeListener = tileset.initialTilesLoaded.addEventListener(() => {
-            removeListener();
-            clearNote();
-        });
-    } catch (error) {
-        console.warn('Google Photorealistic readiness listener failed.', error);
+    if (googlePhotorealisticRefinementTimerId) {
+        window.clearTimeout(googlePhotorealisticRefinementTimerId);
     }
+
+    googlePhotorealisticRefinementTimerId = window.setTimeout(() => {
+        googlePhotorealisticRefinementTimerId = null;
+        if (
+            switchToken !== googlePhotorealisticSwitchToken ||
+            googlePhotorealisticTileset !== tileset ||
+            !tileset.show
+        ) {
+            return;
+        }
+
+        tileset.maximumScreenSpaceError = googlePhotorealisticRefinedMaximumScreenSpaceError;
+        requestSceneRender();
+    }, 2500);
+}
+
+function clearGoogleLoadingNoteWhenReady(tileset, noteElement, switchToken) {
+    if (!tileset) {
+        return;
+    }
+
+    waitForGoogleInitialTiles(tileset, 15000).then((ready) => {
+        if (switchToken === googlePhotorealisticSwitchToken) {
+            if (noteElement) {
+                setBaseMapNoteText(
+                    noteElement,
+                    ready ? '' : 'Google Photorealistic 3D is still streaming detail.'
+                );
+            }
+            if (ready) {
+                scheduleGooglePhotorealisticRefinement(tileset, switchToken);
+            }
+        }
+    });
 }
 
 async function applyFallbackBaseMap(viewerInstance, noteElement, selectElement, message) {
@@ -442,12 +615,13 @@ async function applyFallbackBaseMap(viewerInstance, noteElement, selectElement, 
         selectElement.value = fallbackId;
     }
 
-    if (fallbackId !== currentBaseMapId || !currentBaseLayer) {
+    if (fallbackId !== currentImageryBaseMapId || !currentBaseLayer) {
         await setBaseLayerById(viewerInstance, fallbackId, noteElement, selectElement, {
             skipPhotorealistic: true,
             noteMessage: message
         });
     } else {
+        currentBaseMapId = fallbackId;
         setBaseMapNoteText(noteElement, message);
     }
 }
@@ -467,6 +641,16 @@ async function setGooglePhotorealisticEnabled(enabled, options = {}) {
     }
 
     setBaseMapNoteText(options.noteElement, options.loadingMessage || '');
+    setCurrentImageryLayerVisible(false);
+    if (viewer.scene) {
+        if (viewer.scene.skyAtmosphere) {
+            viewer.scene.skyAtmosphere.show = true;
+        }
+        if (viewer.scene.globe) {
+            viewer.scene.globe.show = false;
+        }
+        requestSceneRender();
+    }
 
     try {
         const tileset = await withTimeout(
@@ -752,12 +936,16 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
                 );
                 return;
             }
+            currentBaseMapId = resolvedId;
+            requestSceneRender();
+            return;
         } else {
             await setGooglePhotorealisticEnabled(false);
         }
     }
 
-    if (resolvedId === currentBaseMapId && currentBaseLayer) {
+    if (resolvedId === currentImageryBaseMapId && currentBaseLayer) {
+        currentBaseMapId = resolvedId;
         return;
     }
 
@@ -784,6 +972,7 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         viewerInstance.imageryLayers.removeAll();
         viewerInstance.imageryLayers.add(layer, 0);
         currentBaseLayer = layer;
+        currentImageryBaseMapId = resolvedId;
         currentBaseMapId = resolvedId;
         setupImageryFallbackForLayer(viewerInstance, layer);
     } catch (error) {
@@ -998,33 +1187,6 @@ if (lodCheckboxGeobasis) {
         void setLod2BuildingsVisible(e.target.checked);
 
         const label = lodCheckboxGeobasis.closest('label');
-        if (label) {
-            if (e.target.checked) {
-                label.classList.add('active');
-            } else {
-                label.classList.remove('active');
-            }
-        }
-    });
-}
-
-// Setup independent Google Photorealistic toggle (Checkbox)
-const googleCheckbox = document.getElementById('googlePhotorealistic');
-if (googleCheckbox) {
-    googleCheckbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            const select = document.getElementById('baseMapSelect');
-            if (select) {
-                select.value = 'google-photorealistic';
-                select.dispatchEvent(new Event('change'));
-            }
-            // Deactivate LOD if Google is on
-            if (lodCheckbox && lodCheckbox.checked) {
-                lodCheckbox.click();
-            }
-        }
-
-        const label = googleCheckbox.closest('label');
         if (label) {
             if (e.target.checked) {
                 label.classList.add('active');
@@ -1303,8 +1465,80 @@ function fetchJson(url, timeoutMs) {
 
 let monumentsGeoJsonReady = null;
 
+function fetchMonumentsSource(source) {
+    const isRemote = /^https?:\/\//i.test(source);
+    return fetchJson(source, isRemote ? remoteMonumentFetchTimeoutMs : 0);
+}
+
+function raceRemoteMonumentsWithLocalFallback(remoteSource, localSource) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let failureCount = 0;
+        let lastError = null;
+        let localFallbackStarted = false;
+        let localFallbackTimerId = null;
+
+        const finish = (data) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            if (localFallbackTimerId) {
+                window.clearTimeout(localFallbackTimerId);
+            }
+            resolve(data);
+        };
+
+        const fail = (source, error) => {
+            failureCount += 1;
+            lastError = error;
+            if (failureCount >= 2 && !settled) {
+                console.warn(`GeoJSON load failed (${source}).`, error);
+                reject(lastError || new Error('No GeoJSON sources available.'));
+            }
+        };
+
+        const startLocalFallback = () => {
+            if (localFallbackStarted) {
+                return;
+            }
+            localFallbackStarted = true;
+            localFallbackTimerId = null;
+            fetchMonumentsSource(localSource)
+                .then(finish)
+                .catch((error) => fail(localSource, error));
+        };
+
+        localFallbackTimerId = window.setTimeout(
+            startLocalFallback,
+            Math.min(900, Math.max(0, remoteMonumentFetchTimeoutMs))
+        );
+
+        fetchMonumentsSource(remoteSource)
+            .then(finish)
+            .catch((error) => {
+                console.warn(`GeoJSON remote source failed (${remoteSource}); using local fallback.`, error);
+                if (localFallbackTimerId) {
+                    window.clearTimeout(localFallbackTimerId);
+                    localFallbackTimerId = null;
+                }
+                startLocalFallback();
+            });
+    });
+}
+
 async function loadMonumentsGeoJson() {
     if (monumentsGeoJsonReady) {
+        return monumentsGeoJsonReady;
+    }
+
+    const remoteSource = monumentsRemoteUrl && /^https?:\/\//i.test(monumentsRemoteUrl)
+        ? monumentsRemoteUrl
+        : null;
+    const localSource = monumentsLocalUrl || null;
+
+    if (remoteSource && localSource) {
+        monumentsGeoJsonReady = raceRemoteMonumentsWithLocalFallback(remoteSource, localSource);
         return monumentsGeoJsonReady;
     }
 
@@ -1318,8 +1552,7 @@ async function loadMonumentsGeoJson() {
             }
 
             try {
-                const isRemote = /^https?:\/\//i.test(source);
-                return await fetchJson(source, isRemote ? remoteMonumentFetchTimeoutMs : 0);
+                return await fetchMonumentsSource(source);
             } catch (error) {
                 console.warn(`GeoJSON load failed (${source}).`, error);
                 lastError = error;

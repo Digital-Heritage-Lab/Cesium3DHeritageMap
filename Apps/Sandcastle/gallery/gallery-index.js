@@ -103,7 +103,7 @@ const gallery_demos = [{
   "img": "3D Tiles Vertical Exaggeration.jpg"
 }, {
   "name": "AEC Clipping",
-  "isNew": true,
+  "isNew": false,
   "img": "AEC Clipping.jpg"
 }, {
   "name": "Aerometrex San Francisco",
@@ -323,7 +323,7 @@ const gallery_demos = [{
   "img": "Classification Types.jpg"
 }, {
   "name": "Clipping Regions",
-  "isNew": true,
+  "isNew": false,
   "img": "Clipping Regions.jpg"
 }, {
   "name": "Clock",
@@ -762,4 +762,4 @@ const gallery_demos = [{
   "isNew": false,
   "img": "Z-Indexing Geometry.jpg"
 }];
-const has_new_gallery_demos = true;
+const has_new_gallery_demos = false;
