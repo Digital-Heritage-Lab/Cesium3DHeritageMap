@@ -1123,8 +1123,9 @@ const markerFocusOffset = new Cesium.HeadingPitchRange(
 );
 const clusterPixelRange = 40;
 const clusterMinimumSize = 3;
-const clusterZoomMinRange = 260.0;
-const clusterZoomMaxRange = 1400.0;
+const clusterZoomMinRange = 140.0;
+const clusterZoomSmallRange = 220.0;
+const clusterZoomMaxRange = 1200.0;
 const clusterZoomPitch = Cesium.Math.toRadians(-58.0);
 const clusterPinBuilder = new Cesium.PinBuilder();
 const clusterPinCache = new Map();
@@ -1381,6 +1382,8 @@ function updateEntities(radioId) {
         clearSelectedMarker();
     }
 
+    invalidateMarkerClusters();
+    requestSceneRender();
 }
 
 /**
@@ -1422,14 +1425,48 @@ function configureClustering(dataSource) {
     });
 }
 
+function invalidateMarkerClusters() {
+    if (!monumentsDataSource || !monumentsDataSource.clustering) {
+        return;
+    }
+
+    const clustering = monumentsDataSource.clustering;
+    const pixelRange = clustering.pixelRange;
+    clustering.pixelRange = pixelRange + 1;
+    clustering.pixelRange = pixelRange;
+}
+
+function isValidCartesianPosition(position) {
+    return Cesium.defined(position)
+        && Number.isFinite(position.x)
+        && Number.isFinite(position.y)
+        && Number.isFinite(position.z);
+}
+
+function getVisibleClusterMarkerPositions(clusteredEntities, now) {
+    return clusteredEntities
+        .filter(entity => entity && entity.show !== false && isMarkerEntity(entity))
+        .map(entity => entity.position.getValue(now))
+        .filter(isValidCartesianPosition);
+}
+
 function getClusterZoomRange(boundingSphere, markerCount) {
     const radius = Math.max(boundingSphere.radius || 0, 1.0);
-    const countFactor = Math.min(Math.max(markerCount, clusterMinimumSize), 12);
-    const scaledRange = radius * (10.0 + countFactor * 1.5);
+    const count = Math.max(markerCount, clusterMinimumSize);
+
+    if (count <= 4) {
+        return Math.min(
+            clusterZoomSmallRange,
+            Math.max(clusterZoomMinRange, radius * 8.0)
+        );
+    }
+
+    const countFactor = Math.min(count, 14);
+    const scaledRange = radius * (7.0 + countFactor);
 
     return Math.min(
         clusterZoomMaxRange,
-        Math.max(clusterZoomMinRange, scaledRange)
+        Math.max(clusterZoomSmallRange, scaledRange)
     );
 }
 
@@ -1439,9 +1476,7 @@ function zoomToClusterEntities(clusteredEntities) {
     }
 
     const now = Cesium.JulianDate.now();
-    const positions = clusteredEntities
-        .map(entity => (entity.position ? entity.position.getValue(now) : null))
-        .filter(position => position);
+    const positions = getVisibleClusterMarkerPositions(clusteredEntities, now);
 
     if (positions.length === 0) {
         return;
@@ -1458,8 +1493,12 @@ function zoomToClusterEntities(clusteredEntities) {
     viewer.camera.flyToBoundingSphere(boundingSphere, {
         duration: 1.0,
         offset: offset,
-        complete: requestSceneRender
+        complete: () => {
+            invalidateMarkerClusters();
+            requestSceneRender();
+        }
     });
+    invalidateMarkerClusters();
     requestSceneRender();
 }
 
