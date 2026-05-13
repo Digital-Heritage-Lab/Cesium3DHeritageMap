@@ -22,6 +22,12 @@ const config = {
     useGooglePhotorealistic: true,
     googlePhotorealisticAssetId: 2275207,
     baseMapDefaultId: 'google-photorealistic',
+    baseMapFallbackId: 'ion-aerial-labels',
+    googlePhotorealisticStartupTimeoutMs: 7000,
+    googlePhotorealisticAutoStart: true,
+    googlePhotorealisticMaximumScreenSpaceError: 32,
+    googlePhotorealisticCacheMB: 128,
+    googlePhotorealisticCacheOverflowMB: 64,
     cologne: {
         longitude: 6.9799,
         latitude: 50.9360,
@@ -44,6 +50,7 @@ const enable3DTiles = config.enable3DTiles;
 const monumentsRemoteUrl = config.monumentsRemoteUrl;
 const monumentsLocalUrl = config.monumentsLocalUrl;
 const configuredBaseMapId = config.baseMapDefaultId || 'ion-aerial-labels';
+const configuredBaseMapFallbackId = config.baseMapFallbackId || 'ion-aerial-labels';
 const mapboxAccessToken = (config.mapboxAccessToken || '').trim();
 const mapboxStyleId = config.mapboxStyleId || 'streets-v12';
 const mapboxUsername = config.mapboxUsername || 'mapbox';
@@ -57,8 +64,15 @@ const remoteMonumentFetchTimeoutMs = Number.isFinite(Number(config.remoteMonumen
     : 3500;
 const showCesiumTimeControls = config.showCesiumTimeControls === true;
 const googlePhotorealisticIonAssetId = config.googlePhotorealisticIonAssetId || config.googlePhotorealisticAssetId || 2275207;
-const googlePhotorealisticCacheBytes = (config.googlePhotorealisticCacheMB || 512) * 1024 * 1024;
-const googlePhotorealisticCacheOverflowBytes = (config.googlePhotorealisticCacheOverflowMB || 256) * 1024 * 1024;
+const googlePhotorealisticAutoStart = config.googlePhotorealisticAutoStart !== false;
+const googlePhotorealisticStartupTimeoutMs = Number.isFinite(Number(config.googlePhotorealisticStartupTimeoutMs))
+    ? Number(config.googlePhotorealisticStartupTimeoutMs)
+    : 7000;
+const googlePhotorealisticMaximumScreenSpaceError = Number.isFinite(Number(config.googlePhotorealisticMaximumScreenSpaceError))
+    ? Number(config.googlePhotorealisticMaximumScreenSpaceError)
+    : 32;
+const googlePhotorealisticCacheBytes = (config.googlePhotorealisticCacheMB || 128) * 1024 * 1024;
+const googlePhotorealisticCacheOverflowBytes = (config.googlePhotorealisticCacheOverflowMB || 64) * 1024 * 1024;
 const googlePhotorealisticEnableCollision = config.googlePhotorealisticEnableCollision === undefined
     ? true
     : config.googlePhotorealisticEnableCollision;
@@ -96,6 +110,7 @@ let googlePhotorealisticTileset = null;
 let googlePhotorealisticTilesetPromise = null;
 let googlePhotorealisticSwitchToken = 0;
 let deferredInitialPhotorealistic = false;
+let googlePhotorealisticStartupAttempted = false;
 let osmBuildingsTileset = null;
 let osmBuildingsTilesetPromise = null;
 let lod2TilesetWest = null;
@@ -202,7 +217,9 @@ const baseMapCatalog = {
 };
 
 function getFallbackBaseMapId() {
-    return 'ion-aerial-labels';
+    return baseMapCatalog[configuredBaseMapFallbackId]
+        ? configuredBaseMapFallbackId
+        : 'ion-aerial-labels';
 }
 
 function resolveBaseMapId(requestedId) {
@@ -239,7 +256,10 @@ async function createBaseLayerFromId(baseMapId) {
 }
 
 async function createBaseLayer() {
-    const resolvedId = resolveBaseMapId(configuredBaseMapId);
+    const requestedId = configuredBaseMapId === 'google-photorealistic'
+        ? getFallbackBaseMapId()
+        : configuredBaseMapId;
+    const resolvedId = resolveBaseMapId(requestedId);
     const baseLayer = await createBaseLayerFromId(resolvedId);
     if (baseLayer) {
         currentBaseMapId = resolvedId;
@@ -307,6 +327,7 @@ async function createGooglePhotorealisticTileset() {
     const options = {
         cacheBytes: googlePhotorealisticCacheBytes,
         maximumCacheOverflowBytes: googlePhotorealisticCacheOverflowBytes,
+        maximumScreenSpaceError: googlePhotorealisticMaximumScreenSpaceError,
         enableCollision: googlePhotorealisticEnableCollision
     };
 
@@ -353,46 +374,139 @@ async function loadGooglePhotorealisticTileset() {
     return googlePhotorealisticTilesetPromise;
 }
 
-async function setGooglePhotorealisticEnabled(enabled) {
-    if (!viewer) {
-        return;
-    }
-
-    const switchToken = ++googlePhotorealisticSwitchToken;
-    if (!enabled) {
-        if (viewer.scene && viewer.scene.globe) {
-            viewer.scene.globe.show = true;
-        }
-        if (googlePhotorealisticTileset) {
-            googlePhotorealisticTileset.show = false;
-        }
-        return;
-    }
-
-    if (viewer.scene) {
-        if (viewer.scene.skyAtmosphere) {
-            viewer.scene.skyAtmosphere.show = true;
-        }
-        if (viewer.scene.globe) {
-            viewer.scene.globe.show = false;
-        }
-    }
-
-    const tileset = await loadGooglePhotorealisticTileset();
-    if (switchToken !== googlePhotorealisticSwitchToken) {
-        return;
-    }
-    if (tileset) {
-        tileset.show = true;
-        if (viewer.scene && viewer.scene.globe) {
-            viewer.scene.globe.show = false;
-        }
-    } else if (viewer.scene && viewer.scene.globe) {
-        viewer.scene.globe.show = true;
+function setBaseMapNoteText(noteElement, message) {
+    if (noteElement) {
+        noteElement.textContent = message || '';
     }
 }
 
+function withTimeout(promise, timeoutMs, message) {
+    if (!timeoutMs || timeoutMs <= 0) {
+        return promise;
+    }
+
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+            reject(new Error(message));
+        }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise])
+        .finally(() => {
+            window.clearTimeout(timeoutId);
+        });
+}
+
+function restoreFallbackGlobe() {
+    if (viewer && viewer.scene && viewer.scene.globe) {
+        viewer.scene.globe.show = true;
+    }
+    if (googlePhotorealisticTileset) {
+        googlePhotorealisticTileset.show = false;
+    }
+}
+
+function clearGoogleLoadingNoteWhenReady(tileset, noteElement, switchToken) {
+    if (!tileset || !tileset.initialTilesLoaded || !noteElement) {
+        return;
+    }
+
+    const clearNote = () => {
+        if (switchToken === googlePhotorealisticSwitchToken) {
+            setBaseMapNoteText(noteElement, '');
+        }
+    };
+
+    if (tileset.root) {
+        clearNote();
+        return;
+    }
+
+    try {
+        const removeListener = tileset.initialTilesLoaded.addEventListener(() => {
+            removeListener();
+            clearNote();
+        });
+    } catch (error) {
+        console.warn('Google Photorealistic readiness listener failed.', error);
+    }
+}
+
+async function applyFallbackBaseMap(viewerInstance, noteElement, selectElement, message) {
+    const fallbackId = getFallbackBaseMapId();
+    restoreFallbackGlobe();
+    ++googlePhotorealisticSwitchToken;
+
+    if (selectElement && selectElement.value !== fallbackId) {
+        selectElement.value = fallbackId;
+    }
+
+    if (fallbackId !== currentBaseMapId || !currentBaseLayer) {
+        await setBaseLayerById(viewerInstance, fallbackId, noteElement, selectElement, {
+            skipPhotorealistic: true,
+            noteMessage: message
+        });
+    } else {
+        setBaseMapNoteText(noteElement, message);
+    }
+}
+
+async function setGooglePhotorealisticEnabled(enabled, options = {}) {
+    if (!viewer) {
+        return false;
+    }
+
+    const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+        ? Number(options.timeoutMs)
+        : 0;
+    const switchToken = ++googlePhotorealisticSwitchToken;
+    if (!enabled) {
+        restoreFallbackGlobe();
+        return true;
+    }
+
+    setBaseMapNoteText(options.noteElement, options.loadingMessage || '');
+
+    try {
+        const tileset = await withTimeout(
+            loadGooglePhotorealisticTileset(),
+            timeoutMs,
+            'Google Photorealistic did not become ready fast enough.'
+        );
+
+        if (switchToken !== googlePhotorealisticSwitchToken) {
+            return false;
+        }
+
+        if (tileset) {
+            tileset.show = true;
+            if (viewer.scene) {
+                if (viewer.scene.skyAtmosphere) {
+                    viewer.scene.skyAtmosphere.show = true;
+                }
+                if (viewer.scene.globe) {
+                    viewer.scene.globe.show = false;
+                }
+            }
+            clearGoogleLoadingNoteWhenReady(tileset, options.noteElement, switchToken);
+            return true;
+        }
+    } catch (error) {
+        if (switchToken === googlePhotorealisticSwitchToken) {
+            console.warn('Google Photorealistic fallback triggered.', error);
+            restoreFallbackGlobe();
+        }
+        return false;
+    }
+    restoreFallbackGlobe();
+    return false;
+}
+
 function deferInitialGooglePhotorealisticLoad() {
+    if (!googlePhotorealisticAutoStart) {
+        return;
+    }
     deferredInitialPhotorealistic = true;
     if (viewer && viewer.scene && viewer.scene.globe) {
         viewer.scene.globe.show = true;
@@ -405,10 +519,38 @@ function activateDeferredInitialPhotorealistic() {
     }
     deferredInitialPhotorealistic = false;
 
-    const startLoad = () => {
-        if (currentBaseMapId === 'google-photorealistic') {
-            void setGooglePhotorealisticEnabled(true);
+    const startLoad = async () => {
+        if (
+            googlePhotorealisticStartupAttempted ||
+            configuredBaseMapId !== 'google-photorealistic'
+        ) {
+            return;
         }
+        googlePhotorealisticStartupAttempted = true;
+
+        const select = document.getElementById('baseMapSelect');
+        const note = document.getElementById('baseMapNote');
+        const ok = await setGooglePhotorealisticEnabled(true, {
+            timeoutMs: googlePhotorealisticStartupTimeoutMs,
+            noteElement: note,
+            loadingMessage: 'Loading Google Photorealistic 3D...'
+        });
+
+        if (ok) {
+            currentBaseMapId = 'google-photorealistic';
+            if (select) {
+                select.value = 'google-photorealistic';
+            }
+            setBaseMapNoteText(note, '');
+            return;
+        }
+
+        await applyFallbackBaseMap(
+            viewer,
+            note,
+            select,
+            'Google Photorealistic is unavailable or too slow. Showing the fast 2D basemap.'
+        );
     };
 
     if (window.requestIdleCallback) {
@@ -574,14 +716,10 @@ function updateBaseMapNote(noteElement, baseMapId) {
         return;
     }
 
-    if (!googleMapsApiKey && baseMapId === 'google-photorealistic') {
-        noteElement.textContent = 'Google Photorealistic needs Cesium ion terms accepted or a Google Maps API key in config.js.';
-        return;
-    }
     noteElement.textContent = '';
 }
 
-async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectElement) {
+async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectElement, options = {}) {
     if (!viewerInstance) {
         return;
     }
@@ -591,11 +729,33 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         selectElement.value = resolvedId;
     }
 
-    updateBaseMapNote(noteElement, baseMapId);
+    if (options.noteMessage) {
+        setBaseMapNoteText(noteElement, options.noteMessage);
+    } else {
+        updateBaseMapNote(noteElement, baseMapId);
+    }
 
     const enablePhotorealistic = resolvedId === 'google-photorealistic';
     deferredInitialPhotorealistic = false;
-    void setGooglePhotorealisticEnabled(enablePhotorealistic);
+    if (!options.skipPhotorealistic) {
+        if (enablePhotorealistic) {
+            const ok = await setGooglePhotorealisticEnabled(true, {
+                noteElement: noteElement,
+                loadingMessage: 'Loading Google Photorealistic 3D...'
+            });
+            if (!ok) {
+                await applyFallbackBaseMap(
+                    viewerInstance,
+                    noteElement,
+                    selectElement,
+                    'Google Photorealistic is unavailable or too slow. Showing the fast 2D basemap.'
+                );
+                return;
+            }
+        } else {
+            await setGooglePhotorealisticEnabled(false);
+        }
+    }
 
     if (resolvedId === currentBaseMapId && currentBaseLayer) {
         return;
@@ -628,6 +788,14 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         setupImageryFallbackForLayer(viewerInstance, layer);
     } catch (error) {
         console.warn(`Base map switch failed (${resolvedId}).`, error);
+        if (resolvedId === 'google-photorealistic') {
+            await applyFallbackBaseMap(
+                viewerInstance,
+                noteElement,
+                selectElement,
+                'Google Photorealistic could not be loaded. Showing the fast 2D basemap.'
+            );
+        }
     }
 }
 
@@ -654,13 +822,17 @@ function setupBaseMapControls(viewerInstance, baseLayer) {
     baseMapSelect.value = currentBaseMapId;
     updateBaseMapNote(baseMapNote, currentBaseMapId);
     if (
-        currentBaseMapId === 'google-photorealistic' &&
+        configuredBaseMapId === 'google-photorealistic' &&
+        googlePhotorealisticAutoStart &&
         deferGooglePhotorealisticUntilInteractive &&
         !eagerLoadOptionalTilesets
     ) {
         deferInitialGooglePhotorealisticLoad();
     } else {
-        void setGooglePhotorealisticEnabled(currentBaseMapId === 'google-photorealistic');
+        void setGooglePhotorealisticEnabled(currentBaseMapId === 'google-photorealistic', {
+            noteElement: baseMapNote,
+            loadingMessage: 'Loading Google Photorealistic 3D...'
+        });
     }
 
     // Event listeners for open/close are managed centrally in the panel management section
