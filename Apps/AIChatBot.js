@@ -18,11 +18,23 @@ class HeritageAIChat {
      */
     registerCommands() {
         const commands = [
+            // --- Search / Locate ---
+            {
+                keywords: ['find', 'search', 'locate', 'show me', 'where is'],
+                handler: (text) => this.handleSearchCommand(text),
+                description: 'Searches the monument database and shows the result on the map.'
+            },
             // --- Navigation ---
             {
                 keywords: ['fly to', 'zoom to', 'go to'],
                 handler: (text) => this.handleFlyTo(text),
                 description: 'Navigates to a specific location.'
+            },
+            // --- Filters ---
+            {
+                keywords: ['filter', 'show only', 'only show'],
+                handler: (text) => this.handleFilterControl(text),
+                description: 'Filters markers by type (3d models, photos, etc).'
             },
             // --- Layers ---
             {
@@ -40,12 +52,6 @@ class HeritageAIChat {
                 keywords: ['time', 'set time'],
                 handler: (text) => this.handleTimeControl(text),
                 description: 'Sets the time of day (morning, noon, evening, night).'
-            },
-            // --- Filters ---
-            {
-                keywords: ['filter', 'show only'],
-                handler: (text) => this.handleFilterControl(text),
-                description: 'Filters markers by type (3d models, photos, etc).'
             },
             // --- Tour ---
             {
@@ -297,6 +303,18 @@ class HeritageAIChat {
             }
         }
 
+        if (!commandFound) {
+            try {
+                const fallbackResponse = await this.handleSearchCommand(lowerText, { silentOnMiss: true });
+                if (fallbackResponse) {
+                    commandFound = true;
+                    response = fallbackResponse;
+                }
+            } catch (e) {
+                console.error("Search fallback error:", e);
+            }
+        }
+
         // Only show "unknown command" if no command was found
         if (!commandFound) {
             response = "I'm not sure how to do that. Try 'help' to see what I can do.";
@@ -311,7 +329,15 @@ class HeritageAIChat {
     // --- Command Handlers ---
 
     getHelpMessage() {
-        return "I can help you:\n- Navigation: 'Fly to Cologne', 'Go to Cathedral', 'Fly to Ostermannbrunnen'\n- Layers: 'Show Aerial', 'Show 3D Buildings'\n- Filters: 'Show only 3D models'\n- Tours: 'Start tour'\n- System: 'Reset chat'";
+        return "I can help you:\n- Navigation: 'Fly to Cologne', 'Go to Cathedral'\n- Database search: 'Find Dom', 'Search Severinstorburg', 'Show me monument 1234'\n- Layers: 'Show aerial', 'Show OSM', 'Show 3D buildings'\n- Filters: 'Show only 3D models', 'Show photos', 'Show all markers'\n- Tours: 'Start tour'\n- System: 'Reset chat'";
+    }
+
+    stripCommandPrefixes(text, prefixes) {
+        let cleanedText = text;
+        prefixes.forEach((prefix) => {
+            cleanedText = cleanedText.replace(new RegExp(`\\b${prefix}\\b`, 'g'), ' ');
+        });
+        return cleanedText.replace(/\s+/g, ' ').trim();
     }
 
     normalizeSearchText(value) {
@@ -476,6 +502,47 @@ class HeritageAIChat {
         }
     }
 
+    async handleSearchCommand(text, options = {}) {
+        const silentOnMiss = options.silentOnMiss === true;
+        const cleanText = this.stripCommandPrefixes(text, [
+            'find',
+            'search',
+            'locate',
+            'show me',
+            'where is',
+            'monument',
+            'database',
+            'in database'
+        ]).replace(/^the\s+/i, '');
+
+        if (!cleanText) {
+            return silentOnMiss ? null : "Tell me what you want to find in the monument database.";
+        }
+
+        const monumentMatch = this.findMonumentMatch(cleanText);
+        if (!monumentMatch) {
+            return silentOnMiss ? null : `I couldn't find "${cleanText}" in the monument database.`;
+        }
+
+        const title = String(this.getPropertyValue(monumentMatch, 'kurzbezeichnung') || cleanText)
+            .trim()
+            .replace(/^["']+|["']+$/g, '');
+        const monumentNumber = String(this.getPropertyValue(monumentMatch, 'denkmallistennummer') || '').trim();
+        const category = String(this.getPropertyValue(monumentMatch, 'kategorie') || '').trim();
+
+        this.flyToEntity(monumentMatch);
+
+        const details = [title];
+        if (monumentNumber) {
+            details.push(`#${monumentNumber}`);
+        }
+        if (category) {
+            details.push(category);
+        }
+
+        return `Found ${details.join(' - ')}. Showing it on the map.`;
+    }
+
     flyToLocation(lon, lat, height, heading, pitch) {
         this.viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(lon, lat, height),
@@ -488,21 +555,70 @@ class HeritageAIChat {
     }
 
     handleLayerControl(text, enable) {
-        if (text.includes('osm') || text.includes('openstreetmap')) {
+        const normalizedText = this.normalizeSearchText(text);
+        const isHideIntent = !enable || /\bhide\b|\bdisable\b|\bturn off\b/.test(normalizedText);
+
+        if (
+            normalizedText.includes('all markers') ||
+            normalizedText.includes('photo') ||
+            normalizedText.includes('photos') ||
+            normalizedText.includes('wikipedia') ||
+            normalizedText.includes('wiki') ||
+            normalizedText.includes('openstreetmap records') ||
+            normalizedText.includes('osm records')
+        ) {
+            return this.handleFilterControl(text);
+        }
+
+        if (normalizedText.includes('osm buildings') || normalizedText.includes('openstreetmap buildings')) {
+            const lodCheckbox = document.getElementById('lodData');
+            if (lodCheckbox) {
+                lodCheckbox.checked = !isHideIntent;
+                lodCheckbox.dispatchEvent(new Event('change'));
+                return isHideIntent ? "OpenStreetMap buildings hidden." : "OpenStreetMap buildings shown.";
+            }
+            return "OpenStreetMap building control is unavailable right now.";
+        }
+
+        if (normalizedText.includes('lod2') || normalizedText.includes('geobasis')) {
+            const lod2Checkbox = document.getElementById('lodDataGeobasis');
+            if (lod2Checkbox) {
+                lod2Checkbox.checked = !isHideIntent;
+                lod2Checkbox.dispatchEvent(new Event('change'));
+                return isHideIntent ? "LoD2 Geobasis buildings hidden." : "LoD2 Geobasis buildings shown.";
+            }
+            return "LoD2 building control is unavailable right now.";
+        }
+
+        if (normalizedText.includes('osm') || normalizedText.includes('openstreetmap')) {
             this.setBaseMap('osm');
             return "Switched to OpenStreetMap.";
         }
-        if (text.includes('aerial') || text.includes('satellite')) {
+        if (normalizedText.includes('aerial with labels') || normalizedText.includes('labels')) {
+            this.setBaseMap('ion-aerial-labels');
+            return "Switched to Aerial view with labels.";
+        }
+        if (normalizedText.includes('aerial') || normalizedText.includes('satellite') || normalizedText.includes('bing')) {
             this.setBaseMap('ion-aerial');
             return "Switched to Aerial view.";
         }
-        if (text.includes('google')) {
+        if (normalizedText.includes('google')) {
             this.setBaseMap('google-photorealistic');
-            // If switching to Google, we might want to disable local buildings to avoid clash
-            // But let's keep logic simple for now
             return "Switched to Google Photorealistic 3D.";
         }
-        if (text.includes('buildings')) {
+        if (normalizedText.includes('buildings') || normalizedText.includes('3d')) {
+            if (isHideIntent) {
+                const lodCheckbox = document.getElementById('lodData');
+                const lod2Checkbox = document.getElementById('lodDataGeobasis');
+                [lodCheckbox, lod2Checkbox].forEach((checkbox) => {
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+                return "Building layers hidden.";
+            }
+
             // 1. Uncheck LOD Data filter if it was active
             const lodCheckbox = document.getElementById('lodData');
             if (lodCheckbox && lodCheckbox.checked) {
@@ -539,7 +655,7 @@ class HeritageAIChat {
 
             return "Google Photorealistic 3D activated. All filters are visible, but LOD is deactivated.";
         }
-        return "I can control OSM, Aerial, Google 3D, and OSM Buildings.";
+        return "I can control OSM, aerial, aerial with labels, Google 3D, OSM buildings, and LoD2 buildings.";
     }
 
     setBaseMap(value) {
@@ -567,15 +683,29 @@ class HeritageAIChat {
     }
 
     handleFilterControl(text) {
-        if (text.includes('models') || text.includes('3d')) {
+        const normalizedText = this.normalizeSearchText(text);
+
+        if (normalizedText.includes('viewer 3d') || normalizedText.includes('3d models in this viewer')) {
+            this.triggerFilter('viewer3d');
+            return "Showing only 3D models in this viewer.";
+        }
+        if (normalizedText.includes('models') || normalizedText.includes('3d')) {
             this.triggerFilter('3dmodel');
             return "Showing only 3D Models.";
         }
-        if (text.includes('photos')) {
+        if (normalizedText.includes('photos') || normalizedText.includes('photo')) {
             this.triggerFilter('photo');
             return "Showing only Photos.";
         }
-        if (text.includes('all')) {
+        if (normalizedText.includes('wikipedia') || normalizedText.includes('wiki')) {
+            this.triggerFilter('wikipedia');
+            return "Showing only monuments with Wikipedia articles.";
+        }
+        if (normalizedText.includes('openstreetmap') || normalizedText.includes('osm records')) {
+            this.triggerFilter('filter_openstreetmap');
+            return "Showing only monuments with OpenStreetMap records.";
+        }
+        if (normalizedText.includes('all')) {
             // Ensure all filters are visible and reset google filter if needed
             const filterLabels = document.querySelectorAll('#optionsBox .filter-group label');
             filterLabels.forEach(label => {
@@ -589,7 +719,7 @@ class HeritageAIChat {
             this.triggerFilter('allMarkers');
             return "Showing all markers and resetting filter list.";
         }
-        return "I can filter by 'models', 'photos', or 'all'.";
+        return "I can filter by viewer 3D, models, photos, Wikipedia, OpenStreetMap records, or all.";
     }
 
     triggerFilter(id) {
