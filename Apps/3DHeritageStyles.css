@@ -553,6 +553,30 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
+#infoContent .info-action-button-3d {
+    background:
+        linear-gradient(135deg, #ffb000 0%, #ff6a00 100%),
+        #ff8a00;
+    border: 1px solid rgba(255, 210, 120, 0.95);
+    color: #101521;
+    font-weight: 800;
+    box-shadow:
+        0 8px 22px rgba(255, 122, 0, 0.35),
+        0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+}
+
+#infoContent .info-action-button-3d:hover,
+#infoContent .info-action-button-3d:focus-visible {
+    background:
+        linear-gradient(135deg, #ffd166 0%, #ff8a00 100%),
+        #ff9d00;
+    border-color: #ffe4a3;
+    color: #080c14;
+    box-shadow:
+        0 10px 26px rgba(255, 138, 0, 0.5),
+        0 0 0 3px rgba(255, 176, 0, 0.2);
+}
+
 /* ========== STORY MAP BOX ========== */
 #storyMapBox {
     position: absolute;

@@ -1926,6 +1926,9 @@ function showEntityInfo(entity) {
 
             const button = document.createElement('button');
             button.textContent = control.label;
+            button.className = control.prop === 'model3d'
+                ? 'info-action-button info-action-button-3d'
+                : 'info-action-button';
 
             // Default behavior for links
             button.onclick = () => {
