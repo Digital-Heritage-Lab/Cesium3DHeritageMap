@@ -189,7 +189,7 @@ class HeritageAIChat {
     }
 
     addInitialMessage() {
-        this.addMessage("Hello! I am your GeoAI Assistant. I can help you navigate Cologne, change map layers, or filter markers by type.", 'ai');
+        this.addMessage("Hi, I can search the heritage database, focus map items, and switch layers. Try: “find Ostermannbrunnen”, “show photos”, “show only 3D models”, “show aerial with labels”, “show OSM buildings”, or “hide buildings”.", 'ai');
     }
 
     clearHistory() {
