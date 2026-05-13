@@ -472,6 +472,10 @@ body {
     line-height: 1.5;
 }
 
+#baseMapNote:empty {
+    display: none;
+}
+
 /* ========== INFO BOX ========== */
 #infoBox {
     position: absolute;
