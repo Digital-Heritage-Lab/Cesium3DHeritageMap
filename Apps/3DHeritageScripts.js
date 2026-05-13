@@ -1123,6 +1123,9 @@ const markerFocusOffset = new Cesium.HeadingPitchRange(
 );
 const clusterPixelRange = 40;
 const clusterMinimumSize = 3;
+const clusterZoomMinRange = 260.0;
+const clusterZoomMaxRange = 1400.0;
+const clusterZoomPitch = Cesium.Math.toRadians(-58.0);
 const clusterPinBuilder = new Cesium.PinBuilder();
 const clusterPinCache = new Map();
 
@@ -1419,6 +1422,17 @@ function configureClustering(dataSource) {
     });
 }
 
+function getClusterZoomRange(boundingSphere, markerCount) {
+    const radius = Math.max(boundingSphere.radius || 0, 1.0);
+    const countFactor = Math.min(Math.max(markerCount, clusterMinimumSize), 12);
+    const scaledRange = radius * (10.0 + countFactor * 1.5);
+
+    return Math.min(
+        clusterZoomMaxRange,
+        Math.max(clusterZoomMinRange, scaledRange)
+    );
+}
+
 function zoomToClusterEntities(clusteredEntities) {
     if (!clusteredEntities || clusteredEntities.length === 0) {
         return;
@@ -1434,9 +1448,19 @@ function zoomToClusterEntities(clusteredEntities) {
     }
 
     const boundingSphere = Cesium.BoundingSphere.fromPoints(positions);
+    const range = getClusterZoomRange(boundingSphere, positions.length);
+    const offset = new Cesium.HeadingPitchRange(
+        viewer.camera.heading,
+        clusterZoomPitch,
+        range
+    );
+
     viewer.camera.flyToBoundingSphere(boundingSphere, {
-        duration: 1.2
+        duration: 1.0,
+        offset: offset,
+        complete: requestSceneRender
     });
+    requestSceneRender();
 }
 
 function fetchJson(url, timeoutMs) {
