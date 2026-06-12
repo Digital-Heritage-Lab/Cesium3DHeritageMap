@@ -1888,12 +1888,12 @@ async function initViewer() {
             activateDeferredInitialPhotorealistic();
         });
 
-    const lat = getUrlParameter('lat');
-    const lon = getUrlParameter('lon');
+    const latNum = parseFloat(getUrlParameter('lat'));
+    const lonNum = parseFloat(getUrlParameter('lon'));
 
-    if (lat && lon) {
+    if (Number.isFinite(latNum) && Number.isFinite(lonNum)) {
         viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromDegrees(parseFloat(lon), parseFloat(lat - 0.001), 200),
+            destination: Cesium.Cartesian3.fromDegrees(lonNum, latNum - 0.001, 200),
             orientation: {
                 heading: Cesium.Math.toRadians(0.0),
                 pitch: Cesium.Math.toRadians(-45.0),
@@ -1969,7 +1969,12 @@ function showEntityInfo(entity) {
             const value = entity.properties[property].getValue();
             const div = document.createElement('div');
             div.className = 'info-item';
-            div.innerHTML = `<strong>${property}:</strong> ${value}`;
+            // Build via DOM nodes (not innerHTML): monument data may come from the
+            // remote source and must not be treated as trusted markup.
+            const labelEl = document.createElement('strong');
+            labelEl.textContent = `${property}:`;
+            div.appendChild(labelEl);
+            div.appendChild(document.createTextNode(` ${value}`));
             infoBox.appendChild(div);
         }
     });
@@ -1995,7 +2000,7 @@ function showEntityInfo(entity) {
 
             // Default behavior for links
             button.onclick = () => {
-                const url = entity.properties[control.urlProp].getValue();
+                const url = sanitizeHttpUrl(entity.properties[control.urlProp].getValue());
                 if (!url) return;
                 window.open(url, '_blank', 'noopener,noreferrer');
             };
@@ -2006,17 +2011,48 @@ function showEntityInfo(entity) {
 
     // Automatically display photo if available
     if (entity.properties.fotourl) {
-        const url = entity.properties.fotourl.getValue();
+        const url = sanitizeHttpUrl(entity.properties.fotourl.getValue());
         if (url) {
             const imgContainer = document.createElement('div');
             imgContainer.className = 'entity-image-container';
             imgContainer.style.marginTop = '15px';
             imgContainer.style.textAlign = 'center';
-            // Added clickable image to open full size
-            imgContainer.innerHTML = `<img src="${url}" alt="Denkmal Foto" title="Click to enlarge" style="max-width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer;" onclick="window.open('${url}', '_blank')">`;
+            // Build the image via DOM (not innerHTML): the photo URL is untrusted
+            // monument data and must not be interpolated into markup/handlers.
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Denkmal Foto';
+            img.title = 'Click to enlarge';
+            img.style.cssText = 'max-width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer;';
+            img.addEventListener('click', () => {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            });
+            imgContainer.appendChild(img);
             infoBox.appendChild(imgContainer);
         }
     }
+}
+
+/**
+ * Returns the URL only if it is a safe absolute http(s) URL, otherwise null.
+ * Guards against javascript:/data: and other injection vectors in untrusted data.
+ * @param {*} value - Candidate URL from monument data.
+ * @returns {string|null}
+ */
+function sanitizeHttpUrl(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const trimmed = value.trim();
+    try {
+        const parsed = new URL(trimmed, window.location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.href;
+        }
+    } catch (error) {
+        return null;
+    }
+    return null;
 }
 
 // Event Listeners
