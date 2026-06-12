@@ -32,6 +32,17 @@ function jsonResponse(status, body) {
   });
 }
 
+function getNetlifyEnv(name) {
+  if (
+    typeof Netlify !== "undefined" &&
+    Netlify.env &&
+    typeof Netlify.env.get === "function"
+  ) {
+    return Netlify.env.get(name);
+  }
+  return process.env[name];
+}
+
 // Accept only plain {role, content} text messages and enforce size caps so the
 // public endpoint cannot be used as a general-purpose proxy for the key.
 function sanitizeMessages(raw) {
@@ -65,7 +76,7 @@ export default async (req) => {
     return jsonResponse(403, { error: "forbidden" });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = getNetlifyEnv("OPENROUTER_API_KEY");
   if (!apiKey) {
     // The client treats this as "LLM mode off" and falls back to offline commands.
     return jsonResponse(503, { error: "llm_not_configured" });
@@ -83,7 +94,7 @@ export default async (req) => {
     return jsonResponse(400, { error: "invalid_messages" });
   }
 
-  const primaryModel = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+  const primaryModel = getNetlifyEnv("OPENROUTER_MODEL") || DEFAULT_MODEL;
   const candidateModels = [primaryModel].concat(
     FALLBACK_MODELS.filter((model) => model !== primaryModel)
   );
