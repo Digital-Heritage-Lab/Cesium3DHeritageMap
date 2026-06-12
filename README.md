@@ -110,6 +110,22 @@ Cesium internally transforms geographic coordinates into high precision Cartesia
 
 ---
 
+## GeoAI Chat (optional LLM mode)
+
+The GeoAI assistant has two modes:
+
+* **Offline mode** (default): built-in keyword commands — works without any setup.
+* **LLM mode**: free-form German/English questions answered by a language model via [OpenRouter](https://openrouter.ai). The model can drive the map (fly to monuments, switch base maps, filter markers, toggle building layers, start the tour) through a validated action protocol.
+
+The browser never sees the API key — requests go through `/api/chat`:
+
+* **Local development**: handled by `server.js`. Put the key in a `.env` file in the repo root (gitignored): `OPENROUTER_API_KEY=sk-or-v1-...`
+* **Netlify production**: handled by `netlify/functions/chat.mjs`. Set `OPENROUTER_API_KEY` under *Site configuration → Environment variables*, then redeploy.
+
+Optional: `OPENROUTER_MODEL` overrides the chat model (default: `meta-llama/llama-3.3-70b-instruct:free`). Free-tier models are rate-limited by OpenRouter; if the LLM is unreachable, the chat automatically falls back to offline commands.
+
+---
+
 ## Partner Project
 
 Denkmal4D Köln

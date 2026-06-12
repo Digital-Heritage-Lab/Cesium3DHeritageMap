@@ -8,6 +8,11 @@ class HeritageAIChat {
     constructor(viewer) {
         this.viewer = viewer;
         this.commands = this.registerCommands();
+        // LLM chat state: conversation history for /api/chat plus availability
+        // flags so we fall back to the offline keyword commands gracefully.
+        this.conversation = [];
+        this.llmAvailable = true;
+        this.offlineNoticeShown = false;
         this.initUI();
         this.bindEvents();
     }
@@ -189,10 +194,13 @@ class HeritageAIChat {
     }
 
     addInitialMessage() {
-        this.addMessage("Hi, I can search the heritage database, focus map items, and switch layers. Try: “find Ostermannbrunnen”, “show photos”, “show only 3D models”, “show aerial with labels”, “show OSM buildings”, or “hide buildings”.", 'ai');
+        this.addMessage("Hi! Ask me anything about Cologne's heritage monuments or tell me what to show on the map — e.g. “Zeig mir den Kölner Dom”, “show only monuments with photos”, “switch to the 3D city view”, or “start tour”.", 'ai');
     }
 
     clearHistory() {
+        // Reset the LLM conversation along with the visible chat
+        this.conversation = [];
+
         // Clear DOM directly
         this.chatHistory.innerHTML = '';
 
@@ -255,12 +263,43 @@ class HeritageAIChat {
         this.addMessage(text, 'user');
         this.inputField.value = '';
 
-        // Simulate "thinking" delay for realism
         this.showTypingIndicator();
-        setTimeout(() => {
+        void this.routeInput(text);
+    }
+
+    /**
+     * Routes a user message: tries the LLM-backed /api/chat endpoint first and
+     * falls back to the built-in offline keyword commands when it is not
+     * configured or unreachable.
+     */
+    async routeInput(text) {
+        try {
+            if (this.llmAvailable) {
+                try {
+                    await this.sendToLlm(text);
+                    return;
+                } catch (error) {
+                    console.warn('GeoAI language mode unavailable, using offline commands.', error);
+                    this.notifyOfflineOnce();
+                }
+            }
+            await this.interpretCommand(text);
+        } finally {
             this.hideTypingIndicator();
-            this.interpretCommand(text);
-        }, 600);
+        }
+    }
+
+    notifyOfflineOnce() {
+        if (this.offlineNoticeShown) {
+            return;
+        }
+        this.offlineNoticeShown = true;
+        this.addMessage(
+            this.llmAvailable
+                ? 'Note: the AI language mode is unreachable right now, so I am using the built-in offline commands instead.'
+                : 'Note: the AI language mode is not configured on this server, so I am using the built-in offline commands. Try “help” to see what works.',
+            'ai'
+        );
     }
 
     showTypingIndicator() {
@@ -324,6 +363,321 @@ class HeritageAIChat {
         if (response !== null && response !== undefined) {
             this.addMessage(response, 'ai');
         }
+    }
+
+    // --- LLM chat mode (via /api/chat proxy, see netlify/functions/chat.mjs) ---
+
+    getSystemPrompt() {
+        if (this.systemPrompt) {
+            return this.systemPrompt;
+        }
+
+        this.systemPrompt = [
+            'You are GeoAI, the assistant inside the "Cologne 3D Heritage Map" web app. The app shows protected heritage monuments (Denkmaeler) of Cologne, Germany as markers on a 3D Cesium globe.',
+            '',
+            'Rules:',
+            "- Reply in the user's language (usually German or English).",
+            '- Be brief: one to three short sentences, plain text only (no markdown, no emojis).',
+            '- Monument candidates found by the local database search are listed in the app context of the latest user message. Prefer them and use their exact number. Never invent monuments or numbers.',
+            '- When the user wants something to happen on the map, append exactly one action line as the LAST line of your reply.',
+            '',
+            'Action line format and available actions:',
+            '<action>{"type":"focus_monument","number":"<denkmallistennummer>"}</action> - fly to and select a monument from the candidates',
+            '<action>{"type":"geocode","query":"Deutzer Bruecke, Koeln"}</action> - precisely locate and fly to a named place, building, bridge, street or address that is NOT in the monument candidates; always append ", Koeln" for places in Cologne',
+            '<action>{"type":"fly_to","longitude":6.9583,"latitude":50.9413,"height":800}</action> - fly to coordinates ONLY when the user explicitly provides them; never guess coordinates from memory, use geocode instead',
+            '<action>{"type":"set_base_map","id":"..."}</action> - id is one of: ion-aerial-labels (aerial with labels), ion-aerial (aerial), google-photorealistic (photorealistic 3D city), osm (street map), basemap-libre (light map)',
+            '<action>{"type":"set_filter","id":"..."}</action> - which markers are shown; id is one of: viewer3d (monuments with 3D tilesets in this app), 3dmodel (external 3D models), photo (with photos), wikipedia (with Wikipedia articles), filter_openstreetmap (with OpenStreetMap records), allMarkers (all monuments)',
+            '<action>{"type":"toggle_layer","layer":"osm-buildings","visible":true}</action> - layer is "osm-buildings" or "lod2-buildings" (grey 3D building volumes)',
+            '<action>{"type":"set_time","hour":18}</action> - sun position, hour 0-23',
+            '<action>{"type":"start_tour"}</action> - guided tour of three highlights',
+            '',
+            'Use at most one action per reply, omit it for pure questions, and never mention the action syntax to the user.'
+        ].join('\n');
+
+        return this.systemPrompt;
+    }
+
+    describeMapState() {
+        const parts = [];
+        try {
+            const baseMapSelect = document.getElementById('baseMapSelect');
+            if (baseMapSelect && baseMapSelect.value) {
+                parts.push(`basemap=${baseMapSelect.value}`);
+            }
+            const activeFilter = document.querySelector('#optionsBox input[type="radio"]:checked');
+            if (activeFilter && activeFilter.id) {
+                parts.push(`marker filter=${activeFilter.id}`);
+            }
+            const osmBuildings = document.getElementById('lodData');
+            if (osmBuildings) {
+                parts.push(`osm-buildings=${osmBuildings.checked ? 'on' : 'off'}`);
+            }
+            const lod2Buildings = document.getElementById('lodDataGeobasis');
+            if (lod2Buildings) {
+                parts.push(`lod2-buildings=${lod2Buildings.checked ? 'on' : 'off'}`);
+            }
+            if (this.viewer && this.viewer.camera && this.viewer.camera.positionCartographic) {
+                const carto = this.viewer.camera.positionCartographic;
+                const lon = Cesium.Math.toDegrees(carto.longitude).toFixed(4);
+                const lat = Cesium.Math.toDegrees(carto.latitude).toFixed(4);
+                parts.push(`camera lon=${lon}, lat=${lat}, height=${Math.round(carto.height)}m`);
+            }
+        } catch (error) {
+            console.warn('Could not read map state for GeoAI context.', error);
+        }
+        return parts.join('; ');
+    }
+
+    /**
+     * Appends app context (map state + top local search hits) to the user
+     * message so the model can ground its answers in the real database
+     * without needing native tool-calling support.
+     */
+    buildLlmUserContent(text) {
+        const contextLines = [];
+        const mapState = this.describeMapState();
+        if (mapState) {
+            contextLines.push(`Map state: ${mapState}`);
+        }
+
+        // Strip command words first ("show X", "zeig mir X"), otherwise they
+        // poison the term matching and no candidates are found at all.
+        const cleanedText = this.stripCommandPrefixes(text.toLowerCase(), [
+            'zeig mir', 'zeige mir', 'zeig', 'zeige', 'flieg zu', 'fliege zu',
+            'flieg zum', 'flieg zur', 'geh zu', 'gehe zu', 'finde', 'suche',
+            'wo ist', 'was ist', 'bitte', 'show me', 'show', 'find', 'search',
+            'locate', 'fly to', 'go to', 'zoom to', 'where is', 'what is',
+            'please', 'the', 'den', 'die', 'das', 'der', 'dem', 'zum', 'zur'
+        ]);
+        let matches = this.findMonumentMatches(cleanedText || text, 5);
+        if (matches.length === 0 && cleanedText !== text.toLowerCase()) {
+            matches = this.findMonumentMatches(text, 5);
+        }
+        if (matches.length > 0) {
+            contextLines.push('Monument candidates from the local database:');
+            matches.forEach((entity, index) => {
+                const title = this.getPropertyValue(entity, 'kurzbezeichnung') || 'Unknown';
+                const number = this.getPropertyValue(entity, 'denkmallistennummer');
+                const category = this.getPropertyValue(entity, 'kategorie');
+                const street = [
+                    this.getPropertyValue(entity, 'strasse'),
+                    this.getPropertyValue(entity, 'hausnummer')
+                ].filter(Boolean).join(' ');
+                const features = ['foto', 'wiki', 'model3d', 'viewer3d', 'osm']
+                    .filter((flag) => String(this.getPropertyValue(entity, flag)).toLowerCase() === 'ja')
+                    .join(',');
+
+                let line = `${index + 1}. ${title} | number=${number || 'n/a'}`;
+                if (category) line += ` | ${category}`;
+                if (street) line += ` | ${street}`;
+                if (features) line += ` | features: ${features}`;
+                contextLines.push(line);
+            });
+        }
+
+        if (contextLines.length === 0) {
+            return text;
+        }
+
+        return `${text}\n\n[App context, not written by the user:\n${contextLines.join('\n')}]`;
+    }
+
+    async sendToLlm(text) {
+        const messages = [{ role: 'system', content: this.getSystemPrompt() }];
+        this.conversation.slice(-12).forEach((message) => messages.push(message));
+        messages.push({ role: 'user', content: this.buildLlmUserContent(text) });
+
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages })
+        });
+
+        if (response.status === 503) {
+            // No API key on this server — switch to offline mode permanently.
+            this.llmAvailable = false;
+            throw new Error('LLM not configured');
+        }
+        if (!response.ok) {
+            throw new Error(`LLM request failed (${response.status})`);
+        }
+
+        const data = await response.json();
+        const reply = data && typeof data.reply === 'string' ? data.reply.trim() : '';
+        if (!reply) {
+            throw new Error('LLM returned an empty reply');
+        }
+
+        // History stores the raw user text (without injected context, to keep
+        // tokens down) and the raw model reply (incl. action, so the model
+        // can see what it already did).
+        this.conversation.push({ role: 'user', content: text });
+        this.conversation.push({ role: 'assistant', content: reply });
+        if (this.conversation.length > 24) {
+            this.conversation = this.conversation.slice(-24);
+        }
+
+        const parsed = this.extractAction(reply);
+        const acted = parsed.action ? this.executeAction(parsed.action) : false;
+
+        if (parsed.displayText) {
+            this.addMessage(parsed.displayText, 'ai');
+        } else if (acted) {
+            this.addMessage('Done.', 'ai');
+        } else {
+            this.addMessage('I did not catch that — could you rephrase?', 'ai');
+        }
+    }
+
+    extractAction(reply) {
+        const match = /<action>\s*(\{[\s\S]*?\})\s*<\/action>/i.exec(reply);
+        let action = null;
+        if (match) {
+            try {
+                action = JSON.parse(match[1]);
+            } catch (error) {
+                console.warn('GeoAI action JSON could not be parsed.', match[1], error);
+            }
+        }
+        const displayText = reply.replace(/<action>[\s\S]*?<\/action>/gi, '').trim();
+        return { action: action, displayText: displayText };
+    }
+
+    /**
+     * Executes a model-requested map action. Every input is validated against
+     * an allowlist — the model output is untrusted.
+     */
+    executeAction(action) {
+        if (!action || typeof action.type !== 'string') {
+            return false;
+        }
+
+        try {
+            switch (action.type) {
+                case 'focus_monument':
+                    return this.actionFocusMonument(action);
+                case 'geocode':
+                    return this.actionGeocode(action);
+                case 'fly_to':
+                    return this.actionFlyTo(action);
+                case 'set_base_map': {
+                    const allowed = ['ion-aerial-labels', 'ion-aerial', 'google-photorealistic', 'osm', 'basemap-libre'];
+                    if (allowed.indexOf(action.id) === -1) return false;
+                    this.setBaseMap(action.id);
+                    return true;
+                }
+                case 'set_filter': {
+                    const allowed = ['viewer3d', '3dmodel', 'photo', 'wikipedia', 'filter_openstreetmap', 'allMarkers'];
+                    if (allowed.indexOf(action.id) === -1) return false;
+                    this.triggerFilter(action.id);
+                    return true;
+                }
+                case 'toggle_layer': {
+                    const checkboxId = action.layer === 'osm-buildings'
+                        ? 'lodData'
+                        : (action.layer === 'lod2-buildings' ? 'lodDataGeobasis' : null);
+                    if (!checkboxId) return false;
+                    const checkbox = document.getElementById(checkboxId);
+                    if (!checkbox) return false;
+                    checkbox.checked = action.visible !== false;
+                    checkbox.dispatchEvent(new Event('change'));
+                    return true;
+                }
+                case 'set_time': {
+                    const hour = Number(action.hour);
+                    if (!Number.isFinite(hour)) return false;
+                    const clamped = Math.min(23, Math.max(0, Math.round(hour)));
+                    const today = Cesium.JulianDate.toDate(Cesium.JulianDate.now());
+                    today.setHours(clamped, 0, 0, 0);
+                    this.viewer.clock.currentTime = Cesium.JulianDate.fromDate(today);
+                    return true;
+                }
+                case 'start_tour':
+                    void this.startTour().then((message) => {
+                        if (message) this.addMessage(message, 'ai');
+                    });
+                    return true;
+                default:
+                    console.warn('GeoAI requested an unknown action type:', action.type);
+                    return false;
+            }
+        } catch (error) {
+            console.warn('GeoAI action failed:', action, error);
+            return false;
+        }
+    }
+
+    actionFocusMonument(action) {
+        let entity = null;
+        const number = action.number !== undefined && action.number !== null
+            ? String(action.number).trim()
+            : '';
+        if (number) {
+            entity = this.getMonumentEntities().find(
+                (candidate) => String(this.getPropertyValue(candidate, 'denkmallistennummer')).trim() === number
+            ) || null;
+        }
+        if (!entity && action.name) {
+            entity = this.findMonumentMatch(String(action.name));
+        }
+        if (!entity) {
+            return false;
+        }
+
+        if (typeof window.focusEntityMarker === 'function') {
+            // Defined in 3DHeritageScripts.js — also updates the marker highlight
+            window.focusEntityMarker(entity, 1.8);
+        } else {
+            this.flyToEntity(entity);
+        }
+        return true;
+    }
+
+    /**
+     * Precisely locates a named place/address via the Cesium Ion geocoder and
+     * flies there. Used for places that are not in the monument database, so
+     * the model never has to guess coordinates from memory (which lands the
+     * camera "nearby" instead of on the object).
+     */
+    actionGeocode(action) {
+        const query = typeof action.query === 'string' ? action.query.trim() : '';
+        if (!query || !Cesium.IonGeocoderService) {
+            return false;
+        }
+
+        const geocoder = new Cesium.IonGeocoderService({ scene: this.viewer.scene });
+        geocoder.geocode(query)
+            .then((results) => {
+                if (results && results.length > 0) {
+                    this.viewer.camera.flyTo({
+                        destination: results[0].destination,
+                        duration: 1.8
+                    });
+                } else {
+                    this.addMessage(`I couldn't locate "${query}" precisely.`, 'ai');
+                }
+            })
+            .catch((error) => {
+                console.warn('GeoAI geocode failed:', query, error);
+                this.addMessage(`I couldn't locate "${query}" right now.`, 'ai');
+            });
+        return true;
+    }
+
+    actionFlyTo(action) {
+        const longitude = Number(action.longitude);
+        const latitude = Number(action.latitude);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false;
+        if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) return false;
+
+        const heightValue = Number(action.height);
+        const height = Number.isFinite(heightValue)
+            ? Math.min(100000, Math.max(50, heightValue))
+            : 800;
+        const heading = Number.isFinite(Number(action.heading)) ? Number(action.heading) : 0;
+        const pitch = Number.isFinite(Number(action.pitch)) ? Number(action.pitch) : -45;
+        this.flyToLocation(longitude, latitude, height, heading, pitch);
+        return true;
     }
 
     // --- Command Handlers ---
@@ -396,15 +750,14 @@ class HeritageAIChat {
             .join(' ');
     }
 
-    findMonumentMatch(query) {
+    scoreMonumentEntities(query) {
         const normalizedQuery = this.normalizeSearchText(query);
         if (!normalizedQuery) {
-            return null;
+            return [];
         }
 
         const queryTerms = normalizedQuery.split(' ').filter((term) => term.length > 1);
-        let bestMatch = null;
-        let bestScore = 0;
+        const scored = [];
 
         this.getMonumentEntities().forEach((entity) => {
             if (!entity || !entity.position) {
@@ -428,13 +781,23 @@ class HeritageAIChat {
                 score += 35 + queryTerms.length * 5;
             }
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = entity;
+            if (score >= 35) {
+                scored.push({ entity: entity, score: score });
             }
         });
 
-        return bestScore >= 35 ? bestMatch : null;
+        scored.sort((a, b) => b.score - a.score);
+        return scored;
+    }
+
+    findMonumentMatches(query, limit = 5) {
+        return this.scoreMonumentEntities(query)
+            .slice(0, limit)
+            .map((item) => item.entity);
+    }
+
+    findMonumentMatch(query) {
+        return this.findMonumentMatches(query, 1)[0] || null;
     }
 
     flyToEntity(entity) {

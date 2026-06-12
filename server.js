@@ -47,6 +47,22 @@ import {
   buildCesium,
 } from "./scripts/build.js";
 
+// Load environment variables from a local .env file (gitignored) without
+// adding a dependency. Supports plain KEY=value lines only.
+(function loadDotEnv() {
+  try {
+    const envText = fs.readFileSync(".env", "utf8");
+    envText.split(/\r?\n/).forEach(function (line) {
+      const match = /^\s*([\w.-]+)\s*=\s*(.*?)\s*$/.exec(line);
+      if (match && process.env[match[1]] === undefined) {
+        process.env[match[1]] = match[2].replace(/^["']|["']$/g, "");
+      }
+    });
+  } catch (error) {
+    // No .env file present — environment variables may be set externally.
+  }
+})();
+
 const sourceFiles = [
   "packages/engine/Source/**/*.js",
   "!packages/engine/Source/*.js",
@@ -276,6 +292,155 @@ async function generateDevelopmentBuild() {
     // while the latest is being served
     app.use("/Build/CesiumUnminified", express.static("Build/CesiumDev"));
   }
+
+  // GeoAI chat proxy (local development) — mirrors netlify/functions/chat.mjs.
+  // Keeps the OpenRouter API key server-side; the browser only talks to /api/chat.
+  // Requires OPENROUTER_API_KEY (environment variable or gitignored .env file).
+  const chatProxyConfig = {
+    model:
+      process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+    // Free models are often rate-limited upstream; retry with these in order.
+    // Free slugs rotate — check https://openrouter.ai/api/v1/models (ids
+    // ending in ":free") when all of them start returning 404.
+    fallbackModels: [
+      "openai/gpt-oss-120b:free",
+      "google/gemma-4-31b-it:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
+    ],
+    maxMessages: 24,
+    maxTotalChars: 24000,
+    maxOutputTokens: 400,
+    upstreamTimeoutMs: 15000,
+    minAttemptBudgetMs: 2000,
+  };
+
+  function sanitizeChatMessages(raw) {
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return null;
+    }
+    const allowedRoles = ["system", "user", "assistant"];
+    const messages = [];
+    let totalChars = 0;
+    for (const entry of raw.slice(-chatProxyConfig.maxMessages)) {
+      if (
+        !entry ||
+        allowedRoles.indexOf(entry.role) === -1 ||
+        typeof entry.content !== "string"
+      ) {
+        return null;
+      }
+      totalChars += entry.content.length;
+      if (totalChars > chatProxyConfig.maxTotalChars) {
+        return null;
+      }
+      messages.push({ role: entry.role, content: entry.content });
+    }
+    return messages;
+  }
+
+  app.post("/api/chat", express.json({ limit: "64kb" }), async function (
+    req,
+    res
+  ) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: "llm_not_configured" });
+    }
+
+    const messages = sanitizeChatMessages(req.body && req.body.messages);
+    if (!messages) {
+      return res.status(400).json({ error: "invalid_messages" });
+    }
+
+    const candidateModels = [chatProxyConfig.model].concat(
+      chatProxyConfig.fallbackModels.filter(
+        (model) => model !== chatProxyConfig.model
+      )
+    );
+    const deadline = Date.now() + chatProxyConfig.upstreamTimeoutMs;
+    let timedOut = false;
+
+    for (const model of candidateModels) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs < chatProxyConfig.minAttemptBudgetMs) {
+        timedOut = true;
+        break;
+      }
+
+      const controller =
+        typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller
+        ? setTimeout(() => controller.abort(), remainingMs)
+        : null;
+      try {
+        const upstream = await fetch(
+          "https://openrouter.ai/api/v1/chat/completions",
+          {
+            method: "POST",
+            signal: controller ? controller.signal : undefined,
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": `${req.protocol}://${req.headers.host}`,
+              "X-Title": "Cesium3D Heritage Map GeoAI",
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: messages,
+              max_tokens: chatProxyConfig.maxOutputTokens,
+              temperature: 0.4,
+            }),
+          }
+        );
+
+        if (!upstream.ok) {
+          const detail = await upstream.text().catch(() => "");
+          console.warn(
+            "OpenRouter error",
+            model,
+            upstream.status,
+            detail.slice(0, 300)
+          );
+          // Rate limits and server errors are worth retrying on the next
+          // free model; auth/validation errors are not.
+          if (
+            upstream.status === 429 ||
+            upstream.status >= 500 ||
+            upstream.status === 404
+          ) {
+            continue;
+          }
+          return res.status(502).json({ error: "llm_upstream_error" });
+        }
+
+        const data = await upstream.json();
+        const reply =
+          data && data.choices && data.choices[0] && data.choices[0].message
+            ? data.choices[0].message.content
+            : null;
+        if (typeof reply !== "string" || reply.trim().length === 0) {
+          continue; // empty answer — try the next model
+        }
+
+        return res.json({ reply: reply });
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          timedOut = true;
+          break;
+        }
+        console.warn("OpenRouter request failed:", model, error);
+        // Network hiccup — try the next candidate model.
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      }
+    }
+
+    res.status(timedOut ? 504 : 502).json({
+      error: timedOut ? "llm_timeout" : "llm_unreachable",
+    });
+  });
 
   app.use(express.static(path.resolve(".")));
 
