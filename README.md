@@ -5,6 +5,11 @@
 
 # Cologne Denkmal4D – Cesium 3D Heritage Visualization
 
+
+https://digitalheritagelab.com/denkmal-4d-cologne-cesiumed/
+
+https://cologne-3d-denkmal.netlify.app/apps/3dheritagemapapp
+
 ## Overview
 
 Cologne Denkmal4D is a 3D web-based cultural heritage visualization platform built with CesiumJS. The project enables interactive exploration of georeferenced 3D monument models within a realistic WGS84 globe environment.
