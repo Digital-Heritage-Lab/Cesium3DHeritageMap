@@ -9,3 +9,6 @@ build/
 temp/
 coverage/
 .env
+
+# Local Netlify folder
+.netlify

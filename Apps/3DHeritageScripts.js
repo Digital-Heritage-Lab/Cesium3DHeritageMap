@@ -1182,6 +1182,9 @@ if (lodCheckbox) {
             }
         }
     });
+    if (lodCheckbox.checked) {
+        void setOsmBuildingsVisible(true);
+    }
 }
 
 // Setup independent LOD2 Data toggle (Checkbox)
@@ -1199,6 +1202,9 @@ if (lodCheckboxGeobasis) {
             }
         }
     });
+    if (lodCheckboxGeobasis.checked) {
+        void setLod2BuildingsVisible(true);
+    }
 }
 
 function getEntityFlags(entity) {
