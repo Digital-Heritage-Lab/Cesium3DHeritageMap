@@ -1106,10 +1106,12 @@ const labelMaxDistance = 3200.0;
 const selectedLabelMaxDistance = 6500.0;
 const labelDistanceDisplayCondition = new Cesium.DistanceDisplayCondition(0.0, labelMaxDistance);
 const selectedLabelDistanceDisplayCondition = new Cesium.DistanceDisplayCondition(0.0, selectedLabelMaxDistance);
-const labelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.0, labelMaxDistance, 0.35);
-const selectedLabelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.08, selectedLabelMaxDistance, 0.5);
-const labelTranslucencyByDistance = new Cesium.NearFarScalar(300.0, 1.0, labelMaxDistance, 0.0);
-const selectedLabelTranslucencyByDistance = new Cesium.NearFarScalar(300.0, 1.0, selectedLabelMaxDistance, 0.0);
+const labelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.05, labelMaxDistance, 0.6);
+const selectedLabelScaleByDistance = new Cesium.NearFarScalar(300.0, 1.15, selectedLabelMaxDistance, 0.7);
+// Stay fully opaque for most of the visible range; only fade out shortly
+// before the distance display condition hides the label anyway.
+const labelTranslucencyByDistance = new Cesium.NearFarScalar(labelMaxDistance * 0.75, 1.0, labelMaxDistance, 0.0);
+const selectedLabelTranslucencyByDistance = new Cesium.NearFarScalar(selectedLabelMaxDistance * 0.8, 1.0, selectedLabelMaxDistance, 0.0);
 const labelPixelOffset = new Cesium.Cartesian2(0, -46);
 const selectedLabelPixelOffset = new Cesium.Cartesian2(0, -54);
 const labelBackgroundColor = Cesium.Color.fromAlpha(Cesium.Color.BLACK, 0.82);
@@ -1331,7 +1333,9 @@ function focusEntityMarker(entity, duration) {
     }
 
     selectMarkerEntity(entity);
-    viewer.selectedEntity = entity;
+    // Show the app's own info panel instead of Cesium's metadata widget.
+    showEntityInfo(entity);
+    openPanel('info');
     viewer.flyTo(entity, {
         duration: duration || 1.8,
         offset: markerFocusOffset
@@ -1713,7 +1717,7 @@ async function loadGeoJson() {
                 // Define the marker label
                 entity.label = new Cesium.LabelGraphics({
                     text: name,
-                    font: '600 14px "Segoe UI", Arial, sans-serif',
+                    font: '600 16px "Segoe UI", Arial, sans-serif',
                     fillColor: labelFillColor,
                     outlineColor: Cesium.Color.BLACK,
                     outlineWidth: 3,
@@ -1723,7 +1727,7 @@ async function loadGeoJson() {
                     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
                     showBackground: true,
                     backgroundColor: labelBackgroundColor,
-                    backgroundPadding: new Cesium.Cartesian2(8, 6),
+                    backgroundPadding: new Cesium.Cartesian2(10, 7),
                     distanceDisplayCondition: labelDistanceDisplayCondition,
                     scaleByDistance: labelScaleByDistance,
                     translucencyByDistance: labelTranslucencyByDistance,
@@ -1837,7 +1841,11 @@ async function initViewer() {
         sceneModePicker: false,
         navigationHelpButton: false,
         animation: showCesiumTimeControls,
-        timeline: showCesiumTimeControls
+        timeline: showCesiumTimeControls,
+        // The app has its own info panel (showEntityInfo/openPanel); Cesium's
+        // metadata widget and selection indicator must never appear.
+        infoBox: false,
+        selectionIndicator: false
     };
 
     if (terrainProvider) {
@@ -2063,7 +2071,8 @@ function sanitizeHttpUrl(value) {
 
 // Event Listeners
 // ========== IMPROVED PANEL MANAGEMENT ==========
-// Centralized panel management - only one panel open at a time
+// Centralized panel management - panels are exclusive, except that the info
+// panel may coexist with the AI chat and the story map (see infoPanelCompanions)
 const panels = {
     options: { panel: 'optionsBox', button: 'openOptionsBox' },
     storymap: { panel: 'storyMapBox', button: 'openStoryMapBox' },
@@ -2072,10 +2081,23 @@ const panels = {
     aichat: { panel: 'aiChatPanel', button: 'toggleAiChat' }
 };
 
-let currentOpenPanel = null;
+// The info panel (top right) may stay open next to the AI chat (bottom right)
+// and the story map (left side): monument details triggered from those panels
+// must not close the panel the user is working in.
+const infoPanelCompanions = ['aichat', 'storymap'];
 
-function closeAllPanels() {
-    Object.values(panels).forEach(({ panel, button, relatedPanel }) => {
+function isPanelOpen(panelKey) {
+    const panelConfig = panels[panelKey];
+    if (!panelConfig) return false;
+    const panelEl = document.getElementById(panelConfig.panel);
+    return !!panelEl && panelEl.style.display !== 'none' && panelEl.style.display !== '';
+}
+
+function closeAllPanels(exceptKeys) {
+    const keep = Array.isArray(exceptKeys) ? exceptKeys : [];
+    Object.entries(panels).forEach(([key, { panel, button, relatedPanel }]) => {
+        if (keep.includes(key) && isPanelOpen(key)) return;
+
         const panelEl = document.getElementById(panel);
         const buttonEl = document.getElementById(button);
 
@@ -2088,7 +2110,6 @@ function closeAllPanels() {
             if (relatedEl) relatedEl.style.display = 'none';
         }
     });
-    currentOpenPanel = null;
 }
 
 function openPanel(panelKey) {
@@ -2099,8 +2120,8 @@ function openPanel(panelKey) {
     const panelEl = document.getElementById(panel);
     const buttonEl = document.getElementById(button);
 
-    // Close all panels first
-    closeAllPanels();
+    // Close the other panels first
+    closeAllPanels(panelKey === 'info' ? infoPanelCompanions : []);
 
     // Open the requested panel
     if (panelEl) {
@@ -2117,12 +2138,10 @@ function openPanel(panelKey) {
             relatedEl.style.animation = 'panel-enter 0.3s ease 0.1s';
         }
     }
-
-    currentOpenPanel = panelKey;
 }
 
 function togglePanel(panelKey) {
-    if (currentOpenPanel === panelKey) {
+    if (isPanelOpen(panelKey)) {
         closeAllPanels();
     } else {
         openPanel(panelKey);

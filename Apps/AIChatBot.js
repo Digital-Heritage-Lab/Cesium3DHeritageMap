@@ -624,12 +624,7 @@ class HeritageAIChat {
             return false;
         }
 
-        if (typeof window.focusEntityMarker === 'function') {
-            // Defined in 3DHeritageScripts.js — also updates the marker highlight
-            window.focusEntityMarker(entity, 1.8);
-        } else {
-            this.flyToEntity(entity);
-        }
+        this.flyToEntity(entity);
         return true;
     }
 
@@ -801,7 +796,13 @@ class HeritageAIChat {
     }
 
     flyToEntity(entity) {
-        this.viewer.selectedEntity = entity;
+        if (typeof window.focusEntityMarker === 'function') {
+            // Defined in 3DHeritageScripts.js — flies to the marker, highlights
+            // it and opens the app's own info panel (not Cesium's metadata UI).
+            window.focusEntityMarker(entity, 1.6);
+            return;
+        }
+
         this.viewer.flyTo(entity, {
             duration: 1.6,
             offset: new Cesium.HeadingPitchRange(
