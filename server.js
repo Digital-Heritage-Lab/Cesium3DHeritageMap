@@ -12,6 +12,7 @@ import yargs from "yargs";
 
 import ContextCache from "./scripts/ContextCache.js";
 import createRoute from "./scripts/createRoute.js";
+import { serveCarto } from "./netlify/functions/carto.mjs";
 
 const argv = yargs(process.argv)
   .options({
@@ -440,6 +441,12 @@ async function generateDevelopmentBuild() {
     res.status(timedOut ? 504 : 502).json({
       error: timedOut ? "llm_timeout" : "llm_unreachable",
     });
+  });
+
+  app.get("/api/carto/*", async function (req, res) {
+    const response = await serveCarto(req.path, process.env.CARTO_BASEMAP_API_KEY, fetch);
+    response.headers.forEach((value, name) => res.setHeader(name, value));
+    res.status(response.status).send(Buffer.from(await response.arrayBuffer()));
   });
 
   app.use(express.static(path.resolve(".")));

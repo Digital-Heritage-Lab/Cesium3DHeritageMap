@@ -200,8 +200,9 @@ function hasMapboxToken() {
 
 async function createOsmImageryProvider() {
     return new Cesium.UrlTemplateImageryProvider({
-        url: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        credit: '© OpenStreetMap contributors, © CARTO'
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        maximumLevel: 19,
+        credit: new Cesium.Credit('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', true)
     });
 }
 
@@ -220,10 +221,23 @@ function createMapboxImageryProvider() {
     });
 }
 
-function createBasemapLibreProvider() {
+async function createBasemapLibreProvider() {
+    // Probe the same endpoint used for tiles before replacing the working map.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+        const response = await fetch('/api/carto/light_all/0/0/0.png', { signal: controller.signal });
+        if (!response.ok || !response.headers.get('content-type')?.includes('image/png')) {
+            throw new Error('CARTO basemap unavailable.');
+        }
+        await response.arrayBuffer();
+    } finally {
+        clearTimeout(timeout);
+    }
     return new Cesium.UrlTemplateImageryProvider({
-        url: 'https://tiles.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        credit: '© OpenStreetMap contributors, © CARTO'
+        url: '/api/carto/light_all/{z}/{x}/{y}.png',
+        maximumLevel: 20,
+        credit: new Cesium.Credit('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>', true)
     });
 }
 
@@ -908,6 +922,7 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         return;
     }
 
+    const switchToken = ++baseMapSwitchToken;
     const resolvedId = resolveBaseMapId(baseMapId);
     if (selectElement && selectElement.value !== resolvedId) {
         selectElement.value = resolvedId;
@@ -944,6 +959,9 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         }
     }
 
+    if (switchToken !== baseMapSwitchToken) {
+        return;
+    }
     if (resolvedId === currentImageryBaseMapId && currentBaseLayer) {
         currentBaseMapId = resolvedId;
         return;
@@ -954,7 +972,6 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         return;
     }
 
-    const switchToken = ++baseMapSwitchToken;
     try {
         const provider = await entry.createProvider();
         if (!provider) {
@@ -976,7 +993,16 @@ async function setBaseLayerById(viewerInstance, baseMapId, noteElement, selectEl
         currentBaseMapId = resolvedId;
         setupImageryFallbackForLayer(viewerInstance, layer);
     } catch (error) {
+        if (switchToken !== baseMapSwitchToken) {
+            return;
+        }
         console.warn(`Base map switch failed (${resolvedId}).`, error);
+        if (resolvedId === 'basemap-libre') {
+            await setBaseLayerById(viewerInstance, 'osm', noteElement, selectElement, {
+                noteMessage: 'CARTO Basemap Libre is unavailable or its API key is missing. Showing OpenStreetMap.'
+            });
+            return;
+        }
         if (resolvedId === 'google-photorealistic') {
             await applyFallbackBaseMap(
                 viewerInstance,
