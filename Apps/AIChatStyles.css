@@ -1,12 +1,12 @@
 /* ========== AI CHAT BOX ========== */
 #aiChatPanel {
     position: absolute;
-    bottom: 100px;
+    bottom: 156px;
     right: 20px;
     width: 380px;
     height: 550px;
     max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 176px);
     display: flex;
     flex-direction: column;
     z-index: 2000;
@@ -31,8 +31,8 @@
         width: 90vw;
         right: 5vw;
         height: 68vh;
-        max-height: calc(100vh - 110px);
-        bottom: 80px;
+        max-height: calc(100dvh - 272px);
+        bottom: 120px;
     }
 }
 
@@ -362,9 +362,9 @@
     #aiChatPanel {
         width: calc(100vw - 24px);
         right: 12px;
-        bottom: 72px;
+        bottom: 120px;
         height: 70vh;
-        max-height: calc(100vh - 92px);
+        max-height: calc(100dvh - 272px);
         border-radius: 16px;
     }
 

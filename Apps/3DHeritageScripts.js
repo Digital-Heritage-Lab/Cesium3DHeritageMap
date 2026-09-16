@@ -2128,7 +2128,10 @@ function closeAllPanels(exceptKeys) {
         const buttonEl = document.getElementById(button);
 
         if (panelEl) panelEl.style.display = 'none';
-        if (buttonEl) buttonEl.classList.remove('active');
+        if (buttonEl) {
+            buttonEl.classList.remove('active');
+            buttonEl.setAttribute('aria-expanded', 'false');
+        }
 
         // Also close related panels
         if (relatedPanel) {
@@ -2154,7 +2157,10 @@ function openPanel(panelKey) {
         panelEl.style.display = panelKey === 'aichat' ? 'flex' : 'block';
         panelEl.style.animation = 'panel-enter 0.3s ease';
     }
-    if (buttonEl) buttonEl.classList.add('active');
+    if (buttonEl && panelEl) {
+        buttonEl.classList.add('active');
+        buttonEl.setAttribute('aria-expanded', 'true');
+    }
 
     // Open related panel if exists (like storyMap for options)
     if (relatedPanel) {
