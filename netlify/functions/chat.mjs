@@ -9,15 +9,15 @@
 
 import { createRateLimiter, sanitizeMessages } from "../../scripts/chat-guard.mjs";
 
-const DEFAULT_MODEL ="meta-llama/llama-3.3-70b-instruct:free";
+const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
 // Free models are often rate-limited upstream; when the primary model fails
 // with a retryable error, the proxy tries these in order. Free slugs rotate —
 // check https://openrouter.ai/api/v1/models (ids ending in ":free") when all
 // of them start returning 404.
 const FALLBACK_MODELS = [
-  "openai/gpt-oss-120b:free",
-  "google/gemma-4-31b-it:free",
-  "qwen/qwen3-next-80b-a3b-instruct:free",
+  "qwen/qwen3.8-27b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
 ];
 const MAX_OUTPUT_TOKENS = 400;
 // Netlify synchronous functions time out at 10s; abort upstream a bit earlier
@@ -105,7 +105,7 @@ export default async (req, context) => {
           "Content-Type": "application/json",
           // OpenRouter attribution headers (recommended, improves free-tier routing)
           "HTTP-Referer": new URL(req.url).origin,
-          "X-Title": "Cesium3D Heritage Map GeoAI",
+          "X-Title": "GrünAtlas Köln | GrünAI",
         },
         body: JSON.stringify({
           model: model,

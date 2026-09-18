@@ -1,4 +1,5 @@
-/* Reuses the existing chat lifecycle; local map commands never require an LLM. */
+/* Reuses the existing chat lifecycle. Clear map commands run locally through GreenAITools; the
+   language model only interprets other questions and can only request allowlisted actions. */
 window.GreenAI = class GreenAI extends HeritageAIChat {
   registerCommands() {
     return [];
@@ -15,7 +16,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       "close"
     )}</button></div><p class="ai-description">Dein Assistent für das Kölner Stadtgrün.</p><div id="aiChatHistory" role="log" aria-live="polite" aria-label="Chatverlauf"><div id="scrollToBottomBtn"></div></div><div id="aiQuickActions"></div><div id="aiInputArea"><input id="aiChatInput" placeholder="Frag GrünAI …" aria-label="Frage an GrünAI" maxlength="2000"><button id="aiSendBtn" aria-label="Frage senden">${icon(
       "send"
-    )}</button></div><label class="ai-disclosure"><input type="checkbox" id="aiRemoteMode"> Freie Fragen an den KI-Server senden</label>`;
+    )}</button></div><label class="ai-disclosure"><input type="checkbox" id="aiRemoteMode"> Komplexe Fragen an externe KI (OpenRouter) senden. Übertragen werden Frage, Verlauf und bis zu 25 sichtbare Orte; Kartenbefehle laufen lokal.</label>`;
     document.getElementById("mapWorkspace").appendChild(panel);
     this.chatPanel = panel;
     this.chatHistory = panel.querySelector("#aiChatHistory");
@@ -28,7 +29,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
   }
   addInitialMessage() {
     this.addMessage(
-      `Was möchtest du über das Kölner Grün wissen? Ich kann Themen einblenden und ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} im aktuellen Kartenausschnitt finden.`,
+      `Was möchtest du über das Kölner Grün wissen? Ich kann Themen einblenden, ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} und Bäume im Kartenausschnitt zählen und auflisten, essbare Bäume und Grünmeldungen zeigen und Orte in deiner Nähe finden.`,
       "ai"
     );
   }
@@ -37,9 +38,9 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       theme = GreenData.theme(active);
     const defaults = [
       ["tree", "Bäume hier entdecken"],
+      ["tree", "Essbare Bäume zeigen"],
       ["play", "Spielplätze in der Nähe"],
-      ["dog", "Hundeauslauf finden"],
-      ["park", "Grünflächen anzeigen"],
+      ["report", "Grünmeldungen anzeigen"],
       ["water", "Brunnen entdecken"],
       ["arch", "Friedhöfe erkunden"],
     ];
@@ -78,71 +79,84 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
     this.busy = true;
     this.sendBtn.disabled = true;
     try {
-      const local = GreenAtlas.aiLocal(text);
+      let local;
+      try {
+        local = await GreenAtlas.aiLocal(text);
+      } catch (error) {
+        console.warn("[GreenAI] local action failed", error);
+        this.addMessage("Die Kartenaktion konnte nicht ausgeführt werden.", "ai");
+        return;
+      }
       if (local) {
         this.addMessage(local, "ai");
         return;
       }
       if (!document.getElementById("aiRemoteMode").checked) {
         this.addMessage(
-          "Diese Frage kann ich mit den lokalen Kartendaten noch nicht beantworten. Probiere „Was sehe ich auf der Karte?“ oder wähle ein Thema. Für freie Fragen kannst du unten den vorhandenen KI-Server aktivieren.",
+          "Diese Frage kann ich mit den lokalen Kartenbefehlen noch nicht beantworten. Probiere zum Beispiel „Zeige Brunnen“, „Wie viele Bäume sehe ich?“ oder „Zeige essbare Bäume“. Für komplexere Fragen kannst du unten die externe KI (OpenRouter) aktivieren.",
           "ai"
         );
         return;
       }
-      const controller = new AbortController(),
-        timeout = setTimeout(() => controller.abort(), 15000);
-      try {
-        const context = GreenAtlas.getContext().slice(0, 30).map((f) => ({
-          name: f.properties.name,
-          theme: f.properties.theme,
-          source: f.properties.source,
-          dataAsOf: f.properties.dataAsOf || null,
-        }));
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Du bist GrünAI für Grün Atlas Köln. Antworte kurz auf Deutsch. Ortsdaten stammen aus einem begrenzten OpenStreetMap-Auszug oder sind explizite Demo-Daten. Erfinde keine Live-Daten, Pflegezustände, Trinkwasserqualität, Leinenregeln oder Zugänglichkeit. Du kannst hier keine Kartenaktionen ausführen. Gib keine Action-Tags aus. Kennzeichne Unsicherheit. Bis zu 30 sichtbare Orte: " +
-                  JSON.stringify(context),
-              },
-              ...this.conversation.slice(-10),
-              { role: "user", content: text },
-            ],
-          }),
-        });
-        if (!response.ok)
-          throw new Error(
-            response.status === 503 ? "not_configured" : "unavailable"
-          );
-        const data = await response.json();
-        if (typeof data.reply !== "string" || !data.reply.trim())
-          throw new Error("empty");
-        this.addMessage(data.reply, "ai");
-        this.conversation.push(
-          { role: "user", content: text },
-          { role: "assistant", content: data.reply }
-        );
-        this.conversation = this.conversation.slice(-12);
-      } finally {
-        clearTimeout(timeout);
-      }
+      await this.askModel(text);
     } catch (error) {
+      console.warn("[GreenAI] request failed", error?.message);
       this.addMessage(
-        error.message === "not_configured"
+        error?.message === "not_configured"
           ? "Der KI-Server ist noch nicht konfiguriert. Themen und lokale Kartenaktionen funktionieren weiterhin."
-          : "Der KI-Dienst ist gerade nicht erreichbar. Nutze die lokalen Themen und Kartenaktionen.",
+          : "Der KI Dienst ist gerade nicht erreichbar. Lokale Kartensuche und Themenfunktionen funktionieren weiterhin.",
         "ai"
       );
     } finally {
       this.busy = false;
       this.sendBtn.disabled = false;
       this.hideTypingIndicator();
+    }
+  }
+  // One request per question. The model returns an intent (an <action> block); numbers, lists and
+  // distances in the visible answer always come from GreenAITools, never from the model text.
+  async askModel(text) {
+    console.debug("[GreenAI] remote intent");
+    const controller = new AbortController(),
+      timeout = setTimeout(() => controller.abort(), 15000);
+    let data;
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: GreenAITools.buildSystemPrompt() },
+            ...this.conversation.slice(-10),
+            { role: "user", content: text },
+          ],
+        }),
+      });
+      if (!response.ok)
+        throw new Error(response.status === 503 ? "not_configured" : "unavailable");
+      data = await response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+    const reply = typeof data?.reply === "string" ? data.reply.trim() : "";
+    if (!reply) throw new Error("empty");
+    this.conversation.push(
+      { role: "user", content: text },
+      { role: "assistant", content: reply }
+    );
+    this.conversation = this.conversation.slice(-12);
+    const { action, displayText } = this.extractAction(reply);
+    if (action) {
+      this.addMessage((await GreenAITools.run(action)).message, "ai");
+    } else if (/<action>/i.test(reply)) {
+      console.warn("[GreenAI] action rejected: unreadable action block");
+      this.addMessage("Diese Aktion kann ich nicht ausführen.", "ai");
+    } else {
+      this.addMessage(
+        displayText.slice(0, 800) || "Das habe ich nicht verstanden. Formuliere die Frage bitte anders.",
+        "ai"
+      );
     }
   }
 };

@@ -30,7 +30,7 @@ Die eigenständige Denkmal-/3D-Seite wurde entfernt. Die ursprüngliche Dokument
 - 45 zugeordnete Commons-Ortsbilder mit Urheber, Lizenz und Bildquelle direkt im Popup.
 - Helle amtliche Grundkarte von basemap.de, OpenStreetMap-Detailkarte und NRW-Orthophotos als Luftbild.
 - Zoom, Standort mit Fehleranzeige, geneigte 3D-Ansicht und Vollbild.
-- GrünAI mit lokalen, regelbasierten Kartenaktionen und echten Treffern im Kartenausschnitt. Freie KI-Fragen sind optional über den vorhandenen Chat-Proxy verfügbar.
+- GrünAI als kontrollierter GeoAI-Assistent: Kartenbefehle, Zählungen, Listen, Nachbarschaftssuche, essbare Bäume und Grünmeldungen laufen lokal mit den geladenen Daten. Komplexere Fragen kann optional eine externe KI (OpenRouter) in eine erlaubte Aktion übersetzen. Siehe Abschnitt „GrünAI (GeoAI)“.
 
 ## Daten und Grenzen
 
@@ -58,7 +58,8 @@ Die 361 vorhandenen Denkmalobjekte und 3D-Metadaten bleiben unverändert. Der ne
 | `scripts/update-tree-cadastre.mjs` | Vollständiger WFS-Abruf und Koordinatentransformation des Baumkatasters |
 | `Apps/GreenAtlasMap.js` | Cesium-Datenquellen, Marker, Auswahl und räumlicher Kontext |
 | `Apps/GreenAtlas.js` | UI, wiederverwendbare Ortskarten, Merkliste und Navigation |
-| `Apps/GreenAI.js` | Neue Chat-Oberfläche, lokale Aktionen, optionale Serveranbindung |
+| `Apps/GreenAITools.js` | GeoAI-Aktionsschicht: Allowlist, Validierung, lokale Abfragen, Intent-Erkennung, Systemprompt |
+| `Apps/GreenAI.js` | Chat-Oberfläche: lokal zuerst, optional Anfrage an die externe KI |
 | `Apps/3DHeritageScripts.js` | Bestehende Karteninitialisierung mit separatem Grün-Atlas-Modus |
 | `Apps/AIChatBot.js` | Wiederverwendeter Chat-Lebenszyklus und Bestandsassistent |
 | `netlify/functions/` | Bestehende Chat- und Grundkarten-Proxys |
@@ -70,10 +71,20 @@ Die Dateien bleiben direkt unter `Apps/`, passend zum bestehenden Deployment-Kop
 Lokale Serverkonfiguration liegt in der ignorierten `.env`; in Netlify werden entsprechende Umgebungsvariablen gesetzt:
 
 - `CARTO_BASEMAP_API_KEY`: nur noch für den vorhandenen CARTO-Proxy; Grün Atlas nutzt basemap.de ohne Schlüssel.
-- `OPENROUTER_API_KEY`: optional für freie KI-Fragen; ausschließlich serverseitig.
-- `OPENROUTER_MODEL`: optionaler Modellname für den bestehenden Chat-Proxy.
+- `OPENROUTER_API_KEY`: optional für die externe KI; ausschließlich serverseitig, nie im Browser.
+- `OPENROUTER_MODEL`: optionaler Modellname (OpenRouter-ID). Ohne Angabe nutzt der Proxy `google/gemma-4-31b-it:free` und weicht bei 404/429/5xx auf weitere kostenlose Modelle aus. Kostenlose Modelle wechseln häufig und sind oft überlastet; für verlässliche Antworten ein festes Modell setzen. Aktuelle IDs: https://openrouter.ai/api/v1/models.
 
-Die lokale Merkliste verwendet `gruen-atlas:favorites` im Browser. Geolocation wird nur durch den Standort-Button angefordert. Freie KI-Fragen senden nach Aktivierung den Fragetext, Gesprächsverlauf und bis zu 30 sichtbare Orte mit Quellenangabe an den Server.
+Die lokale Merkliste verwendet `gruen-atlas:favorites` im Browser. Geolocation wird nur durch den Standort-Button angefordert. Der Standort bleibt nur im Arbeitsspeicher und wird nie gespeichert oder an die KI gesendet. Komplexe Fragen senden nach Aktivierung von „Komplexe Fragen an externe KI (OpenRouter) senden“ den Fragetext, den Gesprächsverlauf und bis zu 25 sichtbare Orte mit Quellenangabe an den Server (nur ein Hinweis, ob ein Standort vorliegt, keine Koordinaten).
+
+## GrünAI (GeoAI)
+
+Ablauf: Eingabe → lokale Intent-Erkennung (`GreenAITools.localIntent`, ohne Netzwerk) → bei eindeutigen Befehlen sofort Aktion; sonst nur bei aktiviertem Schalter Anfrage an `/api/chat` (Netlify-Funktion `chat.mjs` → OpenRouter). Das Modell liefert höchstens einen Block `<action>{"type": …}</action>`. GrünAtlas prüft ihn gegen eine feste Allowlist, kopiert nur bekannte Parameter, führt die Aktion mit den echten Daten aus und formuliert die Antwort selbst. Zahlen, Listen und Entfernungen stammen nie vom Modell. Unbekannte oder ungültige Aktionen werden verworfen; es gibt kein `eval` und keinen frei wählbaren Selektor oder Link.
+
+Aktionen: `show_theme`, `hide_theme`, `show_object`, `zoom_to_object`, `zoom_to_theme`, `search_features`, `filter_features`, `count_features`, `list_features`, `find_nearby`, `show_reports`, `filter_reports`, `get_map_context`. Vorbereitet, aber noch nicht ausführbar: `calculate_route`, `spatial_analysis`, `compare_areas`.
+
+Beispiele: „Zeige die Brunnen“, „Wie viele Bäume sehe ich?“, „Zeige essbare Bäume“, „Zeige Apfelbäume“, „Welche essbaren Baumarten sehe ich?“, „Welche Spielplätze sind in meiner Nähe?“ (braucht den Standort-Button), „Zeige nur offene Grünmeldungen“, „Wie viele offene Grünmeldungen sehe ich?“.
+
+Essbare Bäume folgen einer festen Artenliste (`EDIBLE_TREE_SPECIES` in `GreenAITools.js`), siehe [DATENQUELLEN.md](DATENQUELLEN.md). Entfernungen sind Luftlinie (50 m bis 10 km), kein Routing. Die Konsole zeigt kompakte `[GreenAI]`-Meldungen (Intent, Validierung, Ausführung).
 
 ## Prüfen und veröffentlichen
 

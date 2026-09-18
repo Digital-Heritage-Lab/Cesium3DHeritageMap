@@ -16,7 +16,7 @@ window.GreenData = (() => {
         age: "Alter",
         district: "Stadtbezirk",
       },
-      prompts: ["Welche Baumarten gibt es hier?", "Bäume in diesem Bereich"],
+      prompts: ["Welche Baumarten gibt es hier?", "Essbare Bäume zeigen", "Bäume in diesem Bereich"],
     },
     {
       id: "parks",

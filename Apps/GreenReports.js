@@ -50,9 +50,15 @@ window.GreenReports = (() => {
     return pending;
   }
 
-  function filter(category = 'all', status = 'all') {
+  const clean = (value) => String(value || '').toLocaleLowerCase('de').normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss');
+
+  // `text` is an optional substring match on description and address; the feed has no tree category.
+  function filter(category = 'all', status = 'all', text = '') {
+    const needle = clean(text).trim();
     return reports.filter((item) => (category === 'all' || item.serviceCode === category) &&
-      (status === 'all' || item.status === status));
+      (status === 'all' || item.status === status) &&
+      (!needle || clean(`${item.description} ${item.address}`).includes(needle)));
   }
 
   return { load, filter, get: (id) => byId.get(id) || null,

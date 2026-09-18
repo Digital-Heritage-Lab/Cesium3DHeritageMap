@@ -45,21 +45,33 @@ window.GreenTrees = (() => {
     return true;
   }
 
-  function inBounds(bounds, limit = 3000) {
-    if (!snapshot || !bounds) return [];
+  // Visits every row inside [west, south, east, north] via the cell index.
+  // The visitor may return false to stop early.
+  function forEachInBounds(bounds, visit) {
+    if (!snapshot || !bounds) return;
     const [west, south, east, north] = bounds;
-    const found = [];
     for (let x = Math.floor(west * 100); x <= Math.floor(east * 100); x++) {
       for (let y = Math.floor(south * 100); y <= Math.floor(north * 100); y++) {
         for (const row of cells.get(`${x}:${y}`) || []) {
-          if (row[1] >= west && row[1] <= east && row[2] >= south && row[2] <= north) {
-            found.push(feature(row));
-            if (found.length >= limit) return found;
-          }
+          if (row[1] >= west && row[1] <= east && row[2] >= south && row[2] <= north &&
+            visit(row) === false) return;
         }
       }
     }
+  }
+
+  function inBounds(bounds, limit = 3000, predicate) {
+    const found = [];
+    forEachInBounds(bounds, (row) => {
+      if (predicate && !predicate(row)) return true;
+      found.push(feature(row));
+      return found.length < limit;
+    });
     return found;
+  }
+
+  function forEachRow(visit) {
+    for (const row of rows) if (visit(row) === false) return;
   }
 
   function search(query, limit = 10) {
@@ -77,6 +89,6 @@ window.GreenTrees = (() => {
   }
 
   return { load, get: (id) => byId.has(id) ? feature(byId.get(id)) : null,
-    inBounds, search, get count() { return snapshot?.count || 0; }, get ready() { return !!snapshot; },
+    inBounds, forEachInBounds, forEachRow, toFeature: feature, search, get count() { return snapshot?.count || 0; }, get ready() { return !!snapshot; },
     get dataAsOf() { return snapshot?.dataAsOf; } };
 })();

@@ -24,6 +24,10 @@ Die Baum-Ebene ergänzt den OSM-Auszug um **107.853 Einzelbäume** aus dem [Baum
 
 Der WFS liefert Punkte im Koordinatensystem EPSG:25832; der Import wandelt sie für die Karte in WGS84 um. Er übernimmt nur veröffentlichte Attribute wie deutschen/botanischen Namen, Baumnummer, Straße, Stadtteil und vorhandene Maße. Fehlende Angaben bleiben leer. Auf der Karte werden bei naher Ansicht nur Bäume im aktuellen Ausschnitt als anklickbare, gruppierte Marker dargestellt; Suche und Ortskarte können den gesamten lokalen Schnappschuss nutzen. Die 13 benannten OSM-Bäume bleiben als klar gekennzeichnete, getrennte Quelle erhalten.
 
+### Essbare Bäume (GrünAI)
+
+GrünAI ordnet „essbare Bäume“ nicht per Textähnlichkeit zu, sondern über die feste Liste `EDIBLE_TREE_SPECIES` in `Apps/GreenAITools.js`. Ein Baum zählt nur bei exakt gleichem botanischem Namen (Malus domestica, Pyrus communis, Prunus avium, Prunus domestica, Prunus armeniaca, Prunus dulcis, Juglans regia, Castanea sativa, Corylus avellana) oder bei einem der wenigen exakten Paare aus deutschem Katasternamen und Gattung (Apfel/Malus, Birne/Pyrus, Kirsche/Prunus, Hasel/Corylus, Marone, Eßkastanie/Castanea). Letztere werden als „Art nicht näher bestimmt“ gekennzeichnet. Nicht enthalten sind unter anderem Zierformen (Zierapfel, Zier-Birne, Nelken- und Trauben-Kirsche, Blut-Pflaume), Baumhasel, Roßkastanie, Mehlbeere, Eberesche, Holunder, Maulbeere, Mispel und Quitte. Die Liste sagt nur, dass eine Art grundsätzlich essbare Früchte oder Nüsse tragen kann. Erntefreigabe, Reife, Pflegezustand oder Verzehrbarkeit gehen aus dem Kataster nicht hervor.
+
 Das Kataster umfasst nur von der Stadt verwaltete und betreute Einzelbäume im Straßenland und auf bebauten städtischen Objekten, nicht alle Bäume Kölns. Der Anbieter aktualisiert den Dienst täglich; der mitgelieferte Schnappschuss aktualisiert sich erst mit `npm run trees:refresh` und einer neuen Veröffentlichung. Die Stadt übernimmt keine Gewähr für eine exakte Lage; die Punkte ersetzen keinen amtlichen Lageplan.
 
 ## Sag's uns Köln, Grünmeldungen

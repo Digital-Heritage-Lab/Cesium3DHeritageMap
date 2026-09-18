@@ -8,7 +8,8 @@ window.GreenMap = class GreenMap {
     this.visibleTreeFeatures = [];
     this.reportData = [];
     this.reportVisible = false;
-    this.reportFilters = { category: 'all', status: 'all' };
+    this.reportFilters = { category: 'all', status: 'all', text: '' };
+    this.treeFilter = null;
     this.filters = {};
     this.visible = new Set(["parks", "trees", "water"]);
     this.opacity = {};
@@ -131,7 +132,7 @@ window.GreenMap = class GreenMap {
     const colors = { open: '#b45342', in_progress: '#ae7b2e', closed: '#438263', other: '#61746d' };
     const markers = Object.fromEntries(Object.entries(colors).map(([status, color]) =>
       [status, this.marker({ color, icon: 'pin' })]));
-    for (const report of GreenReports.filter(this.reportFilters.category, this.reportFilters.status)) {
+    for (const report of GreenReports.filter(this.reportFilters.category, this.reportFilters.status, this.reportFilters.text)) {
       const id = `report-${report.id}`;
       const entity = source.entities.add({
         id, name: `${report.category} · #${report.id}`,
@@ -160,7 +161,7 @@ window.GreenMap = class GreenMap {
     if (!this.reportVisible) return [];
     const bounds = this.viewer.camera.computeViewRectangle(this.viewer.scene.globe.ellipsoid);
     if (!bounds) return [];
-    return GreenReports.filter(this.reportFilters.category, this.reportFilters.status).filter((report) =>
+    return GreenReports.filter(this.reportFilters.category, this.reportFilters.status, this.reportFilters.text).filter((report) =>
       Cesium.Rectangle.contains(bounds, Cesium.Cartographic.fromDegrees(report.coordinates.lng, report.coordinates.lat)));
   }
   focusReport(report) {
@@ -190,7 +191,7 @@ window.GreenMap = class GreenMap {
     if (!source || !GreenTrees.ready) return;
     const bounds = this.viewBounds();
     const nearby = this.visible.has('trees') && this.viewer.camera.positionCartographic.height <= 2200
-      ? GreenTrees.inBounds(bounds, 3000) : [];
+      ? GreenTrees.inBounds(bounds, 3000, this.treeFilter?.row) : [];
     const next = new Set(nearby.map((feature) => feature.id));
     for (const id of this.treeIds) {
       if (next.has(id)) continue;
@@ -231,9 +232,30 @@ window.GreenMap = class GreenMap {
     this.viewer.scene.requestRender();
     this.onMove();
   }
+  // filter = { row(cadastreRow) -> bool, feature(osmFeature) -> bool, label } or null to clear.
+  setTreeFilter(filter) {
+    this.treeFilter = filter;
+    this.setFilter('trees', this.filters.trees || {});
+    this.refreshTrees();
+  }
+  cameraHeight() {
+    return this.viewer.camera.positionCartographic.height;
+  }
+  flyToView(height) {
+    const bounds = this.viewBounds();
+    if (!bounds) return;
+    const [west, south, east, north] = bounds;
+    this.viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees((west + east) / 2, (south + north) / 2, height),
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+      duration: 1,
+    });
+  }
   setFilter(id, filters) {
     this.filters[id] = filters;
-    const ids = new Set(GreenData.filtered(id, filters).map((f) => f.id));
+    const ids = new Set(GreenData.filtered(id, filters)
+      .filter((f) => id !== 'trees' || !this.treeFilter || this.treeFilter.feature(f))
+      .map((f) => f.id));
     for (const entity of this.sources.get(id).entities.values) {
       if (id === 'trees' && this.treeIds.has(entity.id)) continue;
       entity.show = ids.has(entity.id);

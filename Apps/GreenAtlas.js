@@ -60,7 +60,8 @@ window.GreenAtlas = (() => {
     lastTrigger,
     viewOnly = false,
     reportLoading = false,
-    reportError = false;
+    reportError = false,
+    userLocation = null; // kept in memory only; never persisted or sent to the language model
   const panel = () => $("contentPanel");
   const isMobile = () => matchMedia("(max-width:760px)").matches;
   const isRealData = () => GreenData.dataMode === "osm";
@@ -127,6 +128,11 @@ window.GreenAtlas = (() => {
           return featured ? `<button class="feature-card" data-object="${escape(featured.id)}"><div class="mini-landscape">${art()}</div><div class="feature-caption"><span><small>ENTDECKERTIPP · ${isRealData() ? "OSM" : "DEMO"}</small><strong>${escape(featured.properties.name)}</strong></span>${icon("arrow")}</div></button>` : "";
         })()}`;
   }
+  function treeFilterNote(id) {
+    return id === "trees" && map.treeFilter
+      ? `<p class="demo-note">Baumfilter aktiv: ${escape(map.treeFilter.label)}. <button class="text-button" data-action="clear-tree-filter">Filter zurücksetzen</button></p>`
+      : "";
+  }
   function renderTheme(id) {
     const t = GreenData.theme(id),
       filters = map.filters[id] || {},
@@ -141,7 +147,7 @@ window.GreenAtlas = (() => {
         t.color
       }">${icon(t.icon)}</div><h2>${t.title}</h2><p>${
         t.description
-      }</p>${id === "trees" && GreenTrees.ready ? `<p class="demo-note">${GreenTrees.count.toLocaleString("de-DE")} Bäume im <a href="https://open.nrw/dataset/e02ad618-ab42-48b5-8551-849aa936bb99" target="_blank" rel="noopener noreferrer">städtischen Baumkataster</a>. Zoome nahe heran, um die Bäume auf der Karte zu sehen. Hier erscheinen bis zu 40 Bäume aus dem Ausschnitt; die Suche findet auch Bäume außerhalb davon.</p>` : ""}<button class="primary-button" data-toggle-theme="${id}" aria-pressed="${map.visible.has(
+      }</p>${id === "trees" && GreenTrees.ready ? `<p class="demo-note">${GreenTrees.count.toLocaleString("de-DE")} Bäume im <a href="https://open.nrw/dataset/e02ad618-ab42-48b5-8551-849aa936bb99" target="_blank" rel="noopener noreferrer">städtischen Baumkataster</a>. Zoome nahe heran, um die Bäume auf der Karte zu sehen. Hier erscheinen bis zu 40 Bäume aus dem Ausschnitt; die Suche findet auch Bäume außerhalb davon.</p>` : ""}${treeFilterNote(id)}<button class="primary-button" data-toggle-theme="${id}" aria-pressed="${map.visible.has(
         id
       )}" title="${
         map.visible.has(id) ? "Ebene ausblenden" : "Ebene einblenden"
@@ -215,7 +221,7 @@ window.GreenAtlas = (() => {
         )}<h3 class="report-section-title">Bürgerinformationen · Meldungen</h3>${renderReportLayer()}</div>`;
   }
   function renderReportLayer() {
-    const count = GreenReports.filter(map.reportFilters.category, map.reportFilters.status).length;
+    const count = GreenReports.filter(map.reportFilters.category, map.reportFilters.status, map.reportFilters.text).length;
     const categories = GreenReports.services.map((service) => '<option value="' + escape(service.code) + '"' +
       (map.reportFilters.category === service.code ? ' selected' : '') + '>' + escape(service.name) + '</option>').join('');
     return `<div class="layer-row report-layer"><div class="layer-top" style="color:#8a6840">${icon('report')}<span class="layer-title"><strong>Sag's uns Köln</strong><small>Grünmeldungen · ${GreenReports.snapshot ? 'Archivstand' : 'letzte 30 Tage'} · ${GreenReports.reports.length.toLocaleString('de-DE')} geladen</small></span><button class="switch" role="switch" aria-label="Sag's uns Köln, Grünmeldungen" aria-checked="${map.reportVisible}" data-report-layer></button></div>${map.reportVisible ? `<div class="report-layer-controls"><p class="demo-note">Bürgerinformationen zu Kölner Grün und Spiel- und Bolzplätzen. Quelle: <a href="https://sags-uns.stadt-koeln.de/requests" target="_blank" rel="noopener noreferrer">Sag's uns Köln</a>.</p><div class="filter-grid"><label>Kategorie<select data-report-filter="category"><option value="all"${map.reportFilters.category === 'all' ? ' selected' : ''}>Alle Grünmeldungen</option>${categories}</select></label><label>Status<select data-report-filter="status"><option value="all"${map.reportFilters.status === 'all' ? ' selected' : ''}>Alle</option><option value="open"${map.reportFilters.status === 'open' ? ' selected' : ''}>Offen</option><option value="in_progress"${map.reportFilters.status === 'in_progress' ? ' selected' : ''}>In Bearbeitung</option><option value="closed"${map.reportFilters.status === 'closed' ? ' selected' : ''}>Abgeschlossen</option></select></label></div><p class="report-layer-state" role="status">${reportLoading ? 'Aktuelle Grünmeldungen werden geladen …' : reportError ? 'Grünmeldungen konnten momentan nicht geladen werden.' : `${count.toLocaleString('de-DE')} Meldungen für diese Filter${GreenReports.fetchedAt ? ` · ${GreenReports.snapshot ? 'Archivstand' : 'Abruf'} ${escape(new Date(GreenReports.fetchedAt).toLocaleString('de-DE'))}` : ''}`}</p><button class="text-button" data-report-refresh${reportLoading ? ' disabled' : ''}>Aktualisieren ↻</button></div>` : ''}</div>`;
@@ -461,12 +467,34 @@ window.GreenAtlas = (() => {
     try {
       const reports = await GreenReports.load(force);
       map.setReportData(reports);
+      return true;
     } catch {
       reportError = true;
+      return false;
     } finally {
       reportLoading = false;
       if (currentView === 'layers' && !panel().hidden) renderLayers();
     }
+  }
+  // Same effect as the report switch and filters in the layers panel, for GrünAI actions.
+  async function setReports({ visible = true, category, status, text } = {}) {
+    map.setReportVisibility(visible);
+    if (!visible) {
+      if (currentView === 'layers' && !panel().hidden) renderLayers();
+      return true;
+    }
+    const filters = { ...map.reportFilters };
+    if (category !== undefined) filters.category = category;
+    if (status !== undefined) filters.status = status;
+    if (text !== undefined) filters.text = text;
+    map.setReportFilters(filters);
+    return refreshReports();
+  }
+  function setThemeVisible(id, show) {
+    map.setVisibility(id, show);
+    updateContext();
+    if (currentView === 'layers' && !panel().hidden) renderLayers();
+    else if (activeTheme === id && !panel().hidden && !viewOnly) renderTheme(id);
   }
   function search() {
     const value = $("greenSearch").value.trim(),
@@ -522,50 +550,10 @@ window.GreenAtlas = (() => {
     if (ai) ai.chatPanel.hidden = true;
     $("greenAIButton").setAttribute("aria-expanded", "false");
   }
-  function aiLocal(text) {
-    const q = GreenData.normalize(text);
-    if (/klima|hitze|schatten/.test(q))
-      return "Bäume und Grünflächen können Schatten und Verdunstungskühle bieten. Für diesen Ausschnitt liegen keine Mess- oder Simulationsdaten vor.";
-    if (/was sehe|kartenansicht|karte gerade/.test(q)) {
-      const features = map.context();
-      return `Im aktuellen Kartenausschnitt sind ${
-        features.length
-      } eingeblendete ${dataLabel()}: ${
-        features
-          .slice(0, 8)
-          .map((f) => f.properties.name)
-          .join(", ") || "keine"
-      }. Verschiebe die Karte oder blende ein Thema ein.`;
-    }
-    const pairs = [
-      ["trees", /baum|baume|linde|eiche/],
-      ["play", /spiel|freizeit/],
-      ["dogs", /hund/],
-      ["parks", /park|grunflach/],
-      ["gardens", /garten|gartenprojekt/],
-      ["cemeteries", /friedhof|friedhofe|melaten/],
-      ["botanical", /botani|flora/],
-      ["water", /brunnen|wasser/],
-    ];
-    const id = pairs.find(([, pattern]) => pattern.test(q))?.[0];
-    if (!id) return null;
-    map.setVisibility(id, true);
-    updateContext();
-    const features = map.context(id);
-    if (/baumart/.test(q))
-      return `In diesem Kartenausschnitt sind folgende Baumarten ${isRealData() ? "im OSM-Auszug" : "in den Demo-Daten"} erfasst: ${
-        [...new Set(features.map((f) => f.properties.species))].join(", ") ||
-        "keine"
-      }. Dies ist keine vollständige Bestandsaufnahme.`;
-    if (/nachst/.test(q))
-      return "Für eine verlässliche Entfernung brauche ich deinen Standort. Nutze den Standort-Button und wähle anschließend einen Ort auf der Karte. Eine Routen- oder Nächster-Park-Berechnung ist noch nicht angebunden.";
-    return `${GreenData.theme(id).layer} ist eingeblendet. ${
-      features.length
-    } passende ${dataLabel()} liegen im aktuellen Kartenausschnitt${
-      features.length
-        ? ": " + features.slice(0, 6).map((f) => f.properties.name).join(", ") + (features.length > 6 ? ` und ${features.length - 6} weitere.` : ".")
-        : ". Zoome heraus, um weitere Orte zu entdecken."
-    } ${isRealData() ? "Der OSM-Auszug ist unvollständig und kein amtliches Register." : "Die Angaben sind illustrativ, keine amtlichen Daten."}`;
+  // Deterministic, network-free intent handling; resolves to a reply text or null when a language model is needed.
+  async function aiLocal(text) {
+    const result = await GreenAITools.handleLocal(text);
+    return result ? result.message : null;
   }
   async function changeBasemap(id) {
     const status = $("basemapStatus");
@@ -684,6 +672,10 @@ window.GreenAtlas = (() => {
           panel().hidden = !visible;
           showObject(id, false);
         }
+      }
+      if (button.dataset.action === "clear-tree-filter") {
+        map.setTreeFilter(null);
+        renderTheme("trees");
       }
       if (button.dataset.action === "close-panel") closePanel();
       if (button.dataset.action === "close-object") {
@@ -810,6 +802,7 @@ window.GreenAtlas = (() => {
         (position) => {
           $("locateMe").disabled = false;
           const { longitude, latitude } = position.coords;
+          userLocation = { lon: longitude, lat: latitude, at: Date.now() };
           map.viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(
               longitude,
@@ -894,6 +887,12 @@ window.GreenAtlas = (() => {
     aiLocal,
     getActiveTheme: () => activeTheme,
     getContext: () => (map ? map.context() : []),
+    getMap: () => map,
+    getUserLocation: () => userLocation,
+    getSelectedId: () => map?.selectedId,
+    setThemeVisible,
+    setReports,
+    loadReports: () => GreenReports.load(),
     getReportContext: () => (map ? map.reportsInView() : []),
     showError: (message) => {
       $("loadingScreen").textContent = message;
