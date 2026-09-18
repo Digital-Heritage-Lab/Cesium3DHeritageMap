@@ -1682,17 +1682,7 @@ summary {
     z-index: 25;
   }
   .ai-launcher {
-    right: 12px;
-    bottom: 16px;
-    padding: 11px 12px;
-    font-size: 11px;
-    border-radius: 12px;
-  }
-  .ai-button-note {
     display: none;
-  }
-  .ai-launcher .icon {
-    width: 17px;
   }
   .mobile-nav {
     position: absolute;
@@ -1759,7 +1749,7 @@ summary {
   #aiChatPanel {
     left: 10px;
     right: 10px;
-    bottom: 9px;
+    bottom: 26px;
     width: auto;
     max-height: 80%;
     border-radius: 22px;

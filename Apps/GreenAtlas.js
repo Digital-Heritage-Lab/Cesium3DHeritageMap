@@ -218,7 +218,7 @@ window.GreenAtlas = (() => {
     const count = GreenReports.filter(map.reportFilters.category, map.reportFilters.status).length;
     const categories = GreenReports.services.map((service) => '<option value="' + escape(service.code) + '"' +
       (map.reportFilters.category === service.code ? ' selected' : '') + '>' + escape(service.name) + '</option>').join('');
-    return `<div class="layer-row report-layer"><div class="layer-top" style="color:#8a6840">${icon('report')}<span class="layer-title"><strong>Sag's uns Köln</strong><small>Grünmeldungen · letzte 30 Tage · ${GreenReports.reports.length.toLocaleString('de-DE')} geladen</small></span><button class="switch" role="switch" aria-label="Sag's uns Köln, Grünmeldungen" aria-checked="${map.reportVisible}" data-report-layer></button></div>${map.reportVisible ? `<div class="report-layer-controls"><p class="demo-note">Bürgerinformationen zu Kölner Grün und Spiel- und Bolzplätzen. Quelle: <a href="https://sags-uns.stadt-koeln.de/requests" target="_blank" rel="noopener noreferrer">Sag's uns Köln</a>.</p><div class="filter-grid"><label>Kategorie<select data-report-filter="category"><option value="all"${map.reportFilters.category === 'all' ? ' selected' : ''}>Alle Grünmeldungen</option>${categories}</select></label><label>Status<select data-report-filter="status"><option value="all"${map.reportFilters.status === 'all' ? ' selected' : ''}>Alle</option><option value="open"${map.reportFilters.status === 'open' ? ' selected' : ''}>Offen</option><option value="in_progress"${map.reportFilters.status === 'in_progress' ? ' selected' : ''}>In Bearbeitung</option><option value="closed"${map.reportFilters.status === 'closed' ? ' selected' : ''}>Abgeschlossen</option></select></label></div><p class="report-layer-state" role="status">${reportLoading ? 'Aktuelle Grünmeldungen werden geladen …' : reportError ? 'Aktuelle Grünmeldungen konnten momentan nicht geladen werden.' : `${count.toLocaleString('de-DE')} Meldungen für diese Filter${GreenReports.fetchedAt ? ` · Abruf ${escape(new Date(GreenReports.fetchedAt).toLocaleString('de-DE'))}` : ''}`}</p><button class="text-button" data-report-refresh${reportLoading ? ' disabled' : ''}>Aktualisieren ↻</button></div>` : ''}</div>`;
+    return `<div class="layer-row report-layer"><div class="layer-top" style="color:#8a6840">${icon('report')}<span class="layer-title"><strong>Sag's uns Köln</strong><small>Grünmeldungen · ${GreenReports.snapshot ? 'Archivstand' : 'letzte 30 Tage'} · ${GreenReports.reports.length.toLocaleString('de-DE')} geladen</small></span><button class="switch" role="switch" aria-label="Sag's uns Köln, Grünmeldungen" aria-checked="${map.reportVisible}" data-report-layer></button></div>${map.reportVisible ? `<div class="report-layer-controls"><p class="demo-note">Bürgerinformationen zu Kölner Grün und Spiel- und Bolzplätzen. Quelle: <a href="https://sags-uns.stadt-koeln.de/requests" target="_blank" rel="noopener noreferrer">Sag's uns Köln</a>.</p><div class="filter-grid"><label>Kategorie<select data-report-filter="category"><option value="all"${map.reportFilters.category === 'all' ? ' selected' : ''}>Alle Grünmeldungen</option>${categories}</select></label><label>Status<select data-report-filter="status"><option value="all"${map.reportFilters.status === 'all' ? ' selected' : ''}>Alle</option><option value="open"${map.reportFilters.status === 'open' ? ' selected' : ''}>Offen</option><option value="in_progress"${map.reportFilters.status === 'in_progress' ? ' selected' : ''}>In Bearbeitung</option><option value="closed"${map.reportFilters.status === 'closed' ? ' selected' : ''}>Abgeschlossen</option></select></label></div><p class="report-layer-state" role="status">${reportLoading ? 'Aktuelle Grünmeldungen werden geladen …' : reportError ? 'Grünmeldungen konnten momentan nicht geladen werden.' : `${count.toLocaleString('de-DE')} Meldungen für diese Filter${GreenReports.fetchedAt ? ` · ${GreenReports.snapshot ? 'Archivstand' : 'Abruf'} ${escape(new Date(GreenReports.fetchedAt).toLocaleString('de-DE'))}` : ''}`}</p><button class="text-button" data-report-refresh${reportLoading ? ' disabled' : ''}>Aktualisieren ↻</button></div>` : ''}</div>`;
   }
   function showView(view) {
     lastTrigger = document.activeElement;
@@ -579,7 +579,17 @@ window.GreenAtlas = (() => {
           ? await createOsmImageryProvider()
           : id === "basemap-libre"
           ? await createBasemapLibreProvider()
-          : await createOnlineImageryProvider();
+          : new Cesium.UrlTemplateImageryProvider({
+              // NRW's WMTS matrix 00 starts at Web Mercator zoom 5.
+              url: "https://www.wmts.nrw.de/geobasis/wmts_nw_dop/tiles/nw_dop/EPSG_3857_16/{matrix}/{x}/{y}",
+              minimumLevel: 5,
+              maximumLevel: 20,
+              rectangle: Cesium.Rectangle.fromDegrees(5.7, 50.3, 9.7, 52.6),
+              customTags: {
+                matrix: (_provider, _x, _y, level) => String(level - 5).padStart(2, "0"),
+              },
+              credit: new Cesium.Credit('© <a href="https://www.bezreg-koeln.nrw.de/geobasis-nrw">Geobasis NRW</a>', true),
+            });
       const layer = new Cesium.ImageryLayer(provider);
       if (id === "osm") {
         layer.saturation = 0.32;

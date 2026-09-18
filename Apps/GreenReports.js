@@ -2,6 +2,7 @@
 window.GreenReports = (() => {
   let reports = [];
   let fetchedAt = null;
+  let snapshot = false;
   let services = [];
   let loadedAt = 0;
   let pending = null;
@@ -13,10 +14,19 @@ window.GreenReports = (() => {
     if (pending) return pending;
     pending = (async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 30000);
       try {
-        const response = await fetch('/api/sags-uns', { signal: controller.signal });
-        if (!response.ok) throw new Error('Grünmeldungen nicht erreichbar');
+        let response;
+        let usingSnapshot = false;
+        try {
+          response = await fetch('/api/sags-uns', { signal: controller.signal });
+          if (!response.ok) throw new Error('Grünmeldungen nicht erreichbar');
+        } catch {
+          // Manual Netlify uploads contain static files but no Functions.
+          response = await fetch('/Apps/Data/sags-uns-snapshot.json');
+          if (!response.ok) throw new Error('Grünmeldungen nicht erreichbar');
+          usingSnapshot = true;
+        }
         const data = await response.json();
         if (!Array.isArray(data.reports) || !Array.isArray(data.services) || !data.fetchedAt) throw new Error('Ungültige Grünmeldungen');
         const allowed = new Set(data.services.filter((service) =>
@@ -29,6 +39,7 @@ window.GreenReports = (() => {
         byId.clear();
         for (const report of next) byId.set(`report-${report.id}`, report);
         fetchedAt = data.fetchedAt;
+        snapshot = usingSnapshot || data.snapshot === true;
         loadedAt = Date.now();
         return reports;
       } finally {
@@ -45,5 +56,6 @@ window.GreenReports = (() => {
   }
 
   return { load, filter, get: (id) => byId.get(id) || null,
-    get reports() { return reports; }, get services() { return services; }, get fetchedAt() { return fetchedAt; } };
+    get reports() { return reports; }, get services() { return services; }, get fetchedAt() { return fetchedAt; },
+    get snapshot() { return snapshot; } };
 })();

@@ -88,7 +88,7 @@ export async function loadGreenReports(fetchImpl = fetch, now = Date.now()) {
   if (pending) return pending;
   pending = (async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8500);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const start = new Date(now - WINDOW_DAYS * 86400000).toISOString();
       const end = new Date(now + 86400000).toISOString();

@@ -233,22 +233,10 @@ function createMapboxImageryProvider() {
 }
 
 async function createBasemapLibreProvider() {
-    // Probe the same endpoint used for tiles before replacing the working map.
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    try {
-        const response = await fetch('/api/carto/light_all/0/0/0.png', { signal: controller.signal });
-        if (!response.ok || !response.headers.get('content-type')?.includes('image/png')) {
-            throw new Error('CARTO basemap unavailable.');
-        }
-        await response.arrayBuffer();
-    } finally {
-        clearTimeout(timeout);
-    }
     return new Cesium.UrlTemplateImageryProvider({
-        url: '/api/carto/light_all/{z}/{x}/{y}.png',
-        maximumLevel: 20,
-        credit: new Cesium.Credit('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>', true)
+        url: 'https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_grau/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',
+        maximumLevel: 19,
+        credit: new Cesium.Credit('© <a href="https://basemap.de/produkte-und-dienste/web-raster/">GeoBasis-DE / BKG (basemap.de)</a>', true)
     });
 }
 

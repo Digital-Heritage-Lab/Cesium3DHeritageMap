@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { clearGreenReportsCache, GREEN_SERVICES, loadGreenReports, normalizeReport } from './sags-uns-service.mjs';
+import sagsUnsHandler from '../netlify/functions/sags-uns.mjs';
 
 const raw = (overrides = {}) => ({
   service_request_id: '22478-2026', service_code: '3.2', service_name: 'Kölner Grün',
@@ -56,4 +57,21 @@ test('upstream failure is surfaced and never cached as an empty feed', async () 
   clearGreenReportsCache();
   await assert.rejects(loadGreenReports(async () => ({ ok: false, status: 503 }), Date.now()));
   clearGreenReportsCache();
+});
+
+test('Netlify serves the dated snapshot when the city feed is unavailable', async () => {
+  clearGreenReportsCache();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('upstream unavailable'); };
+  try {
+    const response = await sagsUnsHandler(new Request('https://example.net/api/sags-uns'));
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(data.snapshot, true);
+    assert.ok(data.reports.length > 0);
+    assert.ok(!Number.isNaN(Date.parse(data.fetchedAt)));
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearGreenReportsCache();
+  }
 });
