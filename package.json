@@ -105,11 +105,11 @@
     "yargs": "^17.0.1"
   },
   "scripts": {
-    "test:atlas": "node --test scripts/test-green-atlas.mjs scripts/test-overpass-import.mjs scripts/test-green-photos.mjs scripts/test-tree-cadastre.mjs",
+    "test:atlas": "node --test scripts/test-green-atlas.mjs scripts/test-overpass-import.mjs scripts/test-green-photos.mjs scripts/test-tree-cadastre.mjs scripts/test-sags-uns.mjs",
     "data:refresh": "node scripts/fetch-green-data.mjs",
     "photos:refresh": "node scripts/update-green-photos.mjs",
     "trees:refresh": "node scripts/update-tree-cadastre.mjs",
-    "lint:atlas": "eslint Apps/GreenAtlas.js Apps/GreenAtlasData.js Apps/GreenTrees.js Apps/GreenAtlasMap.js Apps/GreenAI.js Apps/3DHeritageScripts.js --quiet",
+    "lint:atlas": "eslint Apps/GreenAtlas.js Apps/GreenAtlasData.js Apps/GreenTrees.js Apps/GreenReports.js Apps/GreenAtlasMap.js Apps/GreenAI.js Apps/3DHeritageScripts.js --quiet",
     "build": "npx gulp buildRelease",
     "prepare-netlify-dist": "node scripts/prepare-netlify-dist.js",
     "build:netlify": "npm run build && npm run prepare-netlify-dist",

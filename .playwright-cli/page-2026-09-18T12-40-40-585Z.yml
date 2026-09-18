@@ -1,0 +1,64 @@
+- generic [active] [ref=f1e1]:
+  - link "Zur Karte" [ref=f1e2] [cursor=pointer]:
+    - /url: "#mapWorkspace"
+  - banner [ref=f1e3]:
+    - link "Grün Atlas Köln, entwickelt von der Stadt Köln, Amt für Landschaftspflege und Grünflächen. Startseite" [ref=f1e4] [cursor=pointer]:
+      - /url: 3DHeritageMapApp.html
+      - generic [ref=f1e5]:
+        - text: GRÜN ATLAS
+        - generic [ref=f1e6]: KÖLN
+        - generic [ref=f1e7]: Stadt Köln · Amt für Landschaftspflege und Grünflächen
+    - generic [ref=f1e8]:
+      - searchbox "Grünes Köln durchsuchen" [ref=f1e12]
+      - generic [ref=f1e13]: /
+    - generic [ref=f1e14]:
+      - generic [ref=f1e15]: Demo entdecken
+      - button "Köln" [ref=f1e17] [cursor=pointer]
+  - complementary "Hauptnavigation" [ref=f1e24]:
+    - generic [ref=f1e25]:
+      - generic [ref=f1e26]: DEIN GRÜNES KÖLN
+      - button "Entdecken ↗" [ref=f1e27] [cursor=pointer]:
+        - text: Entdecken
+        - generic [ref=f1e31]: ↗
+    - generic [ref=f1e32]: THEMEN ENTDECKEN
+    - navigation "Grün-Themen"
+    - generic [ref=f1e33]:
+      - button "Kartenebenen 3" [ref=f1e34] [cursor=pointer]:
+        - text: Kartenebenen
+        - generic [ref=f1e38]: "3"
+      - button "Meine Orte 0" [ref=f1e39] [cursor=pointer]:
+        - text: Meine Orte
+        - generic [ref=f1e43]: "0"
+      - button "Über Grün Atlas" [ref=f1e44] [cursor=pointer]
+  - main "Interaktive Karte von Köln" [ref=f1e48]:
+    - generic [ref=f1e55]:
+      - link [ref=f1e58] [cursor=pointer]:
+        - /url: https://cesium.com/
+        - img "Cesium ion" [ref=f1e59]
+      - generic [ref=f1e61]:
+        - text: ©
+        - link "OpenStreetMap" [ref=f1e62] [cursor=pointer]:
+          - /url: https://www.openstreetmap.org/copyright
+        - text: contributors, ©
+        - link "CARTO" [ref=f1e63] [cursor=pointer]:
+          - /url: https://carto.com/attributions
+    - generic [ref=f1e64]:
+      - generic [ref=f1e66]: Köln entdecken
+      - generic [ref=f1e68]: Karte lädt
+    - region "Entdecken" [ref=f1e69]
+    - generic "Kartensteuerung" [ref=f1e70]:
+      - button "Vergrößern" [ref=f1e71] [cursor=pointer]
+      - button "Verkleinern" [ref=f1e75] [cursor=pointer]
+      - button "Meinen Standort anzeigen" [ref=f1e79] [cursor=pointer]
+      - button "Kartenebenen öffnen" [ref=f1e83] [cursor=pointer]
+      - button "3D-Ansicht aktivieren" [ref=f1e87] [cursor=pointer]: 3D
+      - button "Vollbild" [ref=f1e88] [cursor=pointer]
+    - generic [ref=f1e92]:
+      - button "Grundkarte Stadtkarte" [ref=f1e93] [cursor=pointer]:
+        - generic [ref=f1e95]:
+          - text: Grundkarte
+          - generic [ref=f1e96]: Stadtkarte
+      - generic "Kartenlegende" [ref=f1e100]
+    - button "GrünAI Frag deine Stadt" [ref=f1e101] [cursor=pointer]:
+      - generic [ref=f1e105]: GrünAI
+      - generic [ref=f1e106]: Frag deine Stadt

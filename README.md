@@ -22,6 +22,7 @@ Die vorhandene Denkmal-/3D-Anwendung bleibt unter `/Apps/HeritageMap.html` errei
 
 - Neun Grün-Themen mit 993 Kölner OSM-Orten (Datenstand 18. September 2026) und ausdrücklich gekennzeichnetem Demo-Fallback.
 - 107.853 städtische Einzelbäume aus dem Kölner Baumkataster als suchbare, bei nahem Zoom anklickbare Baum-Ebene.
+- Zuschaltbare aktuelle Grünmeldungen aus „Sag's uns Köln“ mit Status-Markern, Clustering, Kategorie- und Statusfilter sowie verlinkten Details.
 - Responsive Themen-Navigation, Entdecken-Karten und mobile Bottom Sheets.
 - Suche über Namen, Kategorien und Attribute; keine vorgetäuschte stadtweite Adresssuche.
 - Kontextfilter, Ebenenschalter, Deckkraft, Legende, Zoom zum Thema und anklickbare Kartenmarker.
@@ -45,6 +46,9 @@ Die 361 vorhandenen Denkmalobjekte und 3D-Metadaten bleiben unverändert. Der ne
 | `Apps/GreenAtlas.css` | Eigenständige Design Tokens, Layout und Responsive Styles |
 | `Apps/GreenAtlasData.js` | Themenkatalog, Datensatzwechsel, Suche und Filter |
 | `Apps/GreenTrees.js` | Baumkataster-Leser, Bereichsindex und stadtweite Baumsuche |
+| `Apps/GreenReports.js` | Client-Cache und Filter für öffentliche Grünmeldungen |
+| `scripts/sags-uns-service.mjs` | Amt-67-Filter, paginierter GeoReport-Abruf, Normalisierung und Server-Cache |
+| `netlify/functions/sags-uns.mjs` | Gleichnamiger API-Zugang auf Netlify unter `/api/sags-uns` |
 | `scripts/import-overpass.mjs` | Import aus einem exportierten Overpass-JSON ohne Netzwerkanfragen |
 | `scripts/fetch-green-data.mjs` | Einmaliger Overpass-Abruf mit Größenlimit und Prüfung vor dem Ersetzen |
 | `scripts/update-green-photos.mjs` | Wikidata-P18-/Commons-Abruf mit Bildattribution und lokaler Vorschau |

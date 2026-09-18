@@ -1,0 +1,188 @@
+- generic [ref=e1]:
+  - link "Zur Karte" [ref=e2] [cursor=pointer]:
+    - /url: "#mapWorkspace"
+  - banner [ref=e3]:
+    - link "Grün Atlas Köln, entwickelt von der Stadt Köln, Amt für Landschaftspflege und Grünflächen. Startseite" [ref=e4] [cursor=pointer]:
+      - /url: 3DHeritageMapApp.html
+      - generic [ref=e5]:
+        - text: GRÜN ATLAS
+        - generic [ref=e6]: KÖLN
+        - generic [ref=e7]: Stadt Köln · Amt für Landschaftspflege und Grünflächen
+    - generic [ref=e8]:
+      - searchbox "Grünes Köln durchsuchen" [ref=e9]
+      - generic [ref=e10]: /
+    - generic [ref=e11]:
+      - generic [ref=e12]: OSM + Stadt Köln
+      - button "Köln" [ref=e14] [cursor=pointer]
+  - complementary "Hauptnavigation" [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e17]: DEIN GRÜNES KÖLN
+      - button "Entdecken ↗" [ref=e18] [cursor=pointer]:
+        - text: Entdecken
+        - generic [ref=e19]: ↗
+    - generic [ref=e20]: THEMEN ENTDECKEN
+    - navigation "Grün-Themen" [ref=e67]:
+      - button "Bäume" [ref=e68] [cursor=pointer]
+      - button "Grünflächen & Parks" [ref=e71] [cursor=pointer]
+      - button "Spiel & Freizeit" [ref=e74] [cursor=pointer]
+      - button "Hunde" [ref=e77] [cursor=pointer]
+      - button "Gärten & Natur" [ref=e80] [cursor=pointer]
+      - button "Friedhöfe" [ref=e83] [cursor=pointer]
+      - button "Botanischer Garten" [ref=e86] [cursor=pointer]
+      - button "Brunnen & Wasser" [ref=e89] [cursor=pointer]
+      - button "Klima & Umwelt" [ref=e92] [cursor=pointer]
+    - generic [ref=e21]:
+      - button "Kartenebenen 4" [ref=e332] [cursor=pointer]:
+        - text: Kartenebenen
+        - generic [ref=e23]: "4"
+      - button "Meine Orte 0" [ref=e24] [cursor=pointer]:
+        - text: Meine Orte
+        - generic [ref=e25]: "0"
+      - button "Über Grün Atlas" [ref=e26] [cursor=pointer]
+  - main "Interaktive Karte von Köln" [ref=e27]:
+    - generic [ref=e109]:
+      - link [ref=e112] [cursor=pointer]:
+        - /url: https://cesium.com/
+        - img "Cesium ion" [ref=e113]
+      - generic [ref=e115]:
+        - text: ©
+        - link "OpenStreetMap" [ref=e116] [cursor=pointer]:
+          - /url: https://www.openstreetmap.org/copyright
+        - text: contributors, ©
+        - link "CARTO" [ref=e117] [cursor=pointer]:
+          - /url: https://carto.com/attributions
+    - generic [ref=e31]:
+      - generic [ref=e33]: Köln entdecken
+      - generic [ref=e35]: 371 Orte im Ausschnitt
+    - region "Kartenebenen" [ref=e217]:
+      - generic [ref=e585]:
+        - generic [ref=e586]: DEINE KARTENANSICHT
+        - button "Panel schließen" [ref=e587] [cursor=pointer]
+      - generic [ref=e590]:
+        - heading "So grün, wie du willst." [level=2] [ref=e591]
+        - paragraph [ref=e592]: Wähle, was du auf der Karte entdecken möchtest.
+        - generic [ref=e593]:
+          - generic [ref=e594]:
+            - generic [ref=e597]:
+              - strong [ref=e598]: Erfasste Bäume
+              - generic [ref=e599]: 107.866 Orte · Stadt Köln + OSM
+            - switch "Erfasste Bäume" [checked] [ref=e600] [cursor=pointer]
+          - group [ref=e601]:
+            - generic "Darstellung & Informationen" [ref=e602] [cursor=pointer]
+        - generic [ref=e603]:
+          - generic [ref=e604]:
+            - generic [ref=e607]:
+              - strong [ref=e608]: Parks & Grünflächen
+              - generic [ref=e609]: 250 Orte · OSM-Auszug
+            - switch "Parks & Grünflächen" [checked] [ref=e610] [cursor=pointer]
+          - group [ref=e611]:
+            - generic "Darstellung & Informationen" [ref=e612] [cursor=pointer]
+        - generic [ref=e613]:
+          - generic [ref=e614]:
+            - generic [ref=e617]:
+              - strong [ref=e618]: Spielplätze
+              - generic [ref=e619]: 250 Orte · OSM-Auszug
+            - switch "Spielplätze" [ref=e620] [cursor=pointer]
+          - group [ref=e621]:
+            - generic "Darstellung & Informationen" [ref=e622] [cursor=pointer]
+        - generic [ref=e623]:
+          - generic [ref=e624]:
+            - generic [ref=e627]:
+              - strong [ref=e628]: Hundeauslaufflächen
+              - generic [ref=e629]: 50 Orte · OSM-Auszug
+            - switch "Hundeauslaufflächen" [ref=e630] [cursor=pointer]
+          - group [ref=e631]:
+            - generic "Darstellung & Informationen" [ref=e632] [cursor=pointer]
+        - generic [ref=e633]:
+          - generic [ref=e634]:
+            - generic [ref=e637]:
+              - strong [ref=e638]: Gärten & Naturorte
+              - generic [ref=e639]: 150 Orte · OSM-Auszug
+            - switch "Gärten & Naturorte" [ref=e640] [cursor=pointer]
+          - group [ref=e641]:
+            - generic "Darstellung & Informationen" [ref=e642] [cursor=pointer]
+        - generic [ref=e643]:
+          - generic [ref=e644]:
+            - generic [ref=e647]:
+              - strong [ref=e648]: Friedhöfe
+              - generic [ref=e649]: 91 Orte · OSM-Auszug
+            - switch "Friedhöfe" [ref=e650] [cursor=pointer]
+          - group [ref=e651]:
+            - generic "Darstellung & Informationen" [ref=e652] [cursor=pointer]
+        - generic [ref=e653]:
+          - generic [ref=e654]:
+            - generic [ref=e657]:
+              - strong [ref=e658]: Botanische Orte
+              - generic [ref=e659]: 1 Orte · OSM-Auszug
+            - switch "Botanische Orte" [ref=e660] [cursor=pointer]
+          - group [ref=e661]:
+            - generic "Darstellung & Informationen" [ref=e662] [cursor=pointer]
+        - generic [ref=e663]:
+          - generic [ref=e664]:
+            - generic [ref=e667]:
+              - strong [ref=e668]: Brunnen & Trinkwasser
+              - generic [ref=e669]: 188 Orte · OSM-Auszug
+            - switch "Brunnen & Trinkwasser" [checked] [ref=e670] [cursor=pointer]
+          - group [ref=e671]:
+            - generic "Darstellung & Informationen" [ref=e672] [cursor=pointer]
+        - generic [ref=e673]:
+          - generic [ref=e674]:
+            - generic [ref=e677]:
+              - strong [ref=e678]: Grüne Klimaorte
+              - generic [ref=e679]: 0 Orte · OSM-Auszug
+            - switch "Grüne Klimaorte" [ref=e680] [cursor=pointer]
+          - group [ref=e681]:
+            - generic "Darstellung & Informationen" [ref=e682] [cursor=pointer]
+        - generic [ref=e683]:
+          - generic [ref=e684]:
+            - generic [ref=e687]:
+              - strong [ref=e688]: Sag's uns Köln
+              - generic [ref=e689]: Grünmeldungen · letzte 30 Tage · 202 geladen
+            - switch "Sag's uns Köln, Grünmeldungen" [checked] [ref=e690] [cursor=pointer]
+          - generic [ref=e691]:
+            - paragraph [ref=e692]:
+              - text: "Bürgerinformationen zu Kölner Grün und Spiel- und Bolzplätzen. Quelle:"
+              - link "Sag's uns Köln" [ref=e693] [cursor=pointer]:
+                - /url: https://sags-uns.stadt-koeln.de/requests
+              - text: .
+            - generic [ref=e694]:
+              - generic [ref=e695]:
+                - text: Kategorie
+                - combobox "Kategorie" [ref=e696]:
+                  - option "Alle Grünmeldungen"
+                  - option "Kölner Grün" [selected]
+                  - option "Spiel- und Bolzplätze"
+              - generic [ref=e697]:
+                - text: Status
+                - combobox "Status" [active] [ref=e698]:
+                  - option "Alle"
+                  - option "Offen" [selected]
+                  - option "In Bearbeitung"
+                  - option "Abgeschlossen"
+            - status [ref=e699]: 5 Meldungen für diese Filter · Abruf 18.9.2026, 14:30:10
+            - button "Aktualisieren ↻" [ref=e700] [cursor=pointer]
+        - paragraph [ref=e701]:
+          - text: Die ursprünglichen Denkmal- und 3D-Daten bleiben in der
+          - link "separaten Bestandsansicht" [ref=e702] [cursor=pointer]:
+            - /url: HeritageMap.html
+          - text: erhalten.
+    - generic "Kartensteuerung" [ref=e37]:
+      - button "Vergrößern" [ref=e38] [cursor=pointer]
+      - button "Verkleinern" [ref=e39] [cursor=pointer]
+      - button "Meinen Standort anzeigen" [ref=e41] [cursor=pointer]
+      - button "Kartenebenen öffnen" [ref=e42] [cursor=pointer]
+      - button "3D-Ansicht aktivieren" [ref=e43] [cursor=pointer]: 3D
+      - button "Vollbild" [ref=e44] [cursor=pointer]
+    - generic [ref=e45]:
+      - button "Grundkarte Helle Stadtkarte" [ref=e204] [cursor=pointer]:
+        - generic [ref=e48]:
+          - text: Grundkarte
+          - generic [ref=e49]: Helle Stadtkarte
+      - generic "Kartenlegende" [ref=e50]:
+        - generic [ref=e703]: Grünflächen
+        - generic [ref=e705]: Bäume
+        - generic [ref=e707]: Brunnen
+        - generic [ref=e709]: Grünmeldungen
+    - button "GrünAI Frag deine Stadt" [ref=e51] [cursor=pointer]:
+      - generic [ref=e52]: GrünAI
+      - generic [ref=e53]: Frag deine Stadt

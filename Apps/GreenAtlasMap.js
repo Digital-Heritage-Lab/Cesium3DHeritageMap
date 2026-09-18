@@ -6,6 +6,9 @@ window.GreenMap = class GreenMap {
     this.entities = new Map();
     this.treeIds = new Set();
     this.visibleTreeFeatures = [];
+    this.reportData = [];
+    this.reportVisible = false;
+    this.reportFilters = { category: 'all', status: 'all' };
     this.filters = {};
     this.visible = new Set(["parks", "trees", "water"]);
     this.opacity = {};
@@ -98,7 +101,73 @@ window.GreenMap = class GreenMap {
       source.show = this.visible.has(theme.id);
       this.sources.set(theme.id, source);
     }
+    const reports = new Cesium.CustomDataSource('reports');
+    reports.clustering.enabled = true;
+    reports.clustering.pixelRange = 55;
+    reports.clustering.minimumClusterSize = 2;
+    reports.clustering.clusterLabels = false;
+    reports.clustering.clusterEvent.addEventListener((entities, cluster) => {
+      cluster.billboard.show = false;
+      cluster.label.show = true;
+      cluster.label.text = String(entities.length);
+      cluster.label.font = '700 13px sans-serif';
+      cluster.label.fillColor = Cesium.Color.WHITE;
+      cluster.label.showBackground = true;
+      cluster.label.backgroundColor = Cesium.Color.fromCssColorString('#8a6840');
+      cluster.label.backgroundPadding = new Cesium.Cartesian2(9, 6);
+      cluster.label.disableDepthTestDistance = Number.POSITIVE_INFINITY;
+    });
+    await this.viewer.dataSources.add(reports);
+    reports.show = false;
+    this.sources.set('reports', reports);
     this.viewer.scene.requestRender();
+  }
+  setReportData(reports) {
+    const source = this.sources.get('reports');
+    if (!source) return;
+    for (const entity of source.entities.values) this.entities.delete(entity.id);
+    source.entities.removeAll();
+    this.reportData = reports;
+    const colors = { open: '#b45342', in_progress: '#ae7b2e', closed: '#438263', other: '#61746d' };
+    const markers = Object.fromEntries(Object.entries(colors).map(([status, color]) =>
+      [status, this.marker({ color, icon: 'pin' })]));
+    for (const report of GreenReports.filter(this.reportFilters.category, this.reportFilters.status)) {
+      const id = `report-${report.id}`;
+      const entity = source.entities.add({
+        id, name: `${report.category} · #${report.id}`,
+        position: Cesium.Cartesian3.fromDegrees(report.coordinates.lng, report.coordinates.lat, 5),
+        billboard: { image: markers[report.status] || markers.other, width: 28, height: 33,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      });
+      entity.greenFeatureId = id;
+      this.entities.set(id, entity);
+    }
+    this.viewer.scene.requestRender();
+    this.onMove();
+  }
+  setReportFilters(filters) {
+    this.reportFilters = filters;
+    this.setReportData(this.reportData);
+  }
+  setReportVisibility(show) {
+    this.reportVisible = show;
+    this.sources.get('reports').show = show;
+    this.viewer.scene.requestRender();
+    this.onMove();
+  }
+  reportsInView() {
+    if (!this.reportVisible) return [];
+    const bounds = this.viewer.camera.computeViewRectangle(this.viewer.scene.globe.ellipsoid);
+    if (!bounds) return [];
+    return GreenReports.filter(this.reportFilters.category, this.reportFilters.status).filter((report) =>
+      Cesium.Rectangle.contains(bounds, Cesium.Cartographic.fromDegrees(report.coordinates.lng, report.coordinates.lat)));
+  }
+  focusReport(report) {
+    this.viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(report.coordinates.lng, report.coordinates.lat, 1000),
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1.1,
+    });
   }
   marker(theme) {
     const symbol = window.GreenAtlas.icon(theme.icon)

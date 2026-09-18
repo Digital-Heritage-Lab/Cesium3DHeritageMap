@@ -8,6 +8,11 @@
   status = 301
   force = true
 
+[[redirects]]
+  from = "/api/sags-uns"
+  to = "/.netlify/functions/sags-uns"
+  status = 200
+
 [[headers]]
   for = "/*.html"
   [headers.values]

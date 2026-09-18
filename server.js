@@ -13,6 +13,7 @@ import yargs from "yargs";
 import ContextCache from "./scripts/ContextCache.js";
 import createRoute from "./scripts/createRoute.js";
 import { serveCarto } from "./netlify/functions/carto.mjs";
+import { loadGreenReports } from "./scripts/sags-uns-service.mjs";
 
 const argv = yargs(process.argv)
   .options({
@@ -447,6 +448,15 @@ async function generateDevelopmentBuild() {
     const response = await serveCarto(req.path, process.env.CARTO_BASEMAP_API_KEY, fetch);
     response.headers.forEach((value, name) => res.setHeader(name, value));
     res.status(response.status).send(Buffer.from(await response.arrayBuffer()));
+  });
+
+  app.get("/api/sags-uns", async function (_req, res) {
+    try {
+      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=300');
+      res.json(await loadGreenReports());
+    } catch {
+      res.status(502).json({ error: 'reports_unavailable' });
+    }
   });
 
   app.use(express.static(path.resolve(".")));
