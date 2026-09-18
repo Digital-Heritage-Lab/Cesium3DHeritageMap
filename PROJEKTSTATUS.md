@@ -2,7 +2,7 @@
 
 Entwickelt von der Stadt Köln, Amt für Landschaftspflege und Grünflächen.
 
-Das visuelle und UX-Redesign ist implementiert. Die primäre Seite ist `Apps/3DHeritageMapApp.html`; die ursprüngliche Denkmal-Anwendung bleibt unter `Apps/HeritageMap.html` erhalten.
+Das visuelle und UX-Redesign ist implementiert. Die primäre Seite ist `Apps/3DHeritageMapApp.html`. Die frühere eigenständige Denkmal-Seite `Apps/HeritageMap.html` wurde entfernt; Karten-Start und Chat-Basisklasse (`3DHeritageScripts.js`, `AIChatBot.js`) bleiben Teil der neuen App.
 
 Die Grün-Ansicht verwendet 993 Kölner OSM-Objekte (Datenstand 18. September 2026) in acht Themen; für Klima liegen keine Messwerte vor. Die 24 gekennzeichneten Demo-Objekte werden nur ohne echte Datendatei geladen. Die App enthält Suche, Kontextfilter, Ebenenoptionen, Merkliste, Ortskarten und GrünAI. Freie KI-Fragen benötigen einen erreichbaren, konfigurierten Serverdienst; lokale Kartenaktionen funktionieren unabhängig davon.
 

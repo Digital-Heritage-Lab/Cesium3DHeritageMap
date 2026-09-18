@@ -4,7 +4,7 @@
 
 Die primäre Oberfläche ist vollständig neu gestaltet: eigene Waldgrün-/Salbei-Tokens, lokale Typografie, Logo, helle Kopfzeile, Themen-Navigation, Entdecken-Karten, gemeinsame Ortskarten, Floating Controls und mobile Bottom Sheets. Die alte CSS-Oberfläche wird auf der Hauptseite nicht mehr geladen.
 
-Technisch bleiben Cesium, Kartenanbieter, serverseitige Proxys und die bisherige Chat-Basisklasse erhalten. Die ursprüngliche Fachanwendung ist unter `Apps/HeritageMap.html` separat erreichbar. Ihre GeoJSON-Dateien wurden nicht verändert.
+Technisch bleiben Cesium, Kartenanbieter, serverseitige Proxys und die bisherige Chat-Basisklasse erhalten. Die frühere eigenständige Denkmal-Seite `Apps/HeritageMap.html` wurde entfernt; ihre GeoJSON-Dateien wurden nicht verändert.
 
 Neue Fachlogik ist getrennt nach Daten, Kartenadapter, UI und GrünAI. Der bestehende Deployment-Kopierer erfasst die neuen Dateien direkt unter `Apps/`. Zusätzliche Laufzeit-Abhängigkeiten waren nicht erforderlich.
 
@@ -42,7 +42,7 @@ Neue Fachlogik ist getrennt nach Daten, Kartenadapter, UI und GrünAI. Der beste
 | `Apps/GreenAtlas.js` | Themen, Suche, Cards, Favoriten und Kartenbedienung |
 | `Apps/GreenAI.js` | Neue Assistenten-Oberfläche mit ehrlichem lokalem/externem Betriebsmodus |
 | `Apps/3DHeritageScripts.js` | Kleiner Produktmodus im vorhandenen Bootstrap; bestehender Modus bleibt erhalten |
-| `Apps/HeritageMap.html` | Erhält die ursprüngliche Fachanwendung |
+| `Apps/HeritageMap.html` | Entfernt (frühere eigenständige Fachanwendung) |
 | `Apps/.eslintrc.json`, `scripts/test-green-atlas.mjs`, `package.json` | Reproduzierbare Produktprüfungen |
 | `index.html`, `scripts/prepare-netlify-dist.js` | Neuer Einstieg und korrekte Produktbezeichnung im Paket |
 | `README.md`, `README-HERITAGE.md`, `PROJEKTSTATUS.md` | Aktuelle Dokumentation mit erhaltener Herkunft |

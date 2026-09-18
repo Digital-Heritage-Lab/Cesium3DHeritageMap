@@ -2,6 +2,8 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
+    <!-- Die App wird auch unter "/" ausgeliefert; relative Pfade bleiben auf /Apps/ bezogen. -->
+    <base href="/Apps/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#174d38" />
     <meta name="author" content="Stadt Köln, Amt für Landschaftspflege und Grünflächen" />
@@ -28,11 +30,11 @@
     <script src="3DHeritageScripts.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#mapWorkspace">Zur Karte</a>
+    <a class="skip-link" href="/#mapWorkspace">Zur Karte</a>
     <header class="app-header">
       <a
         class="brand"
-        href="3DHeritageMapApp.html"
+        href="/"
         aria-label="Grün Atlas Köln, entwickelt von der Stadt Köln, Amt für Landschaftspflege und Grünflächen. Startseite"
         ><img src="Images/gruen-atlas.svg" alt="" width="38" height="38" /><span
           >GRÜN ATLAS<small>KÖLN</small><span class="brand-office"

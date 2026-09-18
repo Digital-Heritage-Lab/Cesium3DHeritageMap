@@ -432,6 +432,11 @@ async function generateDevelopmentBuild() {
     }
   });
 
+  // Same as the Netlify rewrite: the app answers on "/" without a visible path.
+  app.get("/", function (_req, res) {
+    res.sendFile(path.resolve("Apps", "3DHeritageMapApp.html"));
+  });
+
   app.use(express.static(path.resolve(".")));
 
   const server = app.listen(

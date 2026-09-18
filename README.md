@@ -14,9 +14,9 @@ npm run build
 npm run start
 ```
 
-Öffnen: http://localhost:8080/Apps/3DHeritageMapApp.html
+Öffnen: http://localhost:8080/
 
-Die vorhandene Denkmal-/3D-Anwendung bleibt unter `/Apps/HeritageMap.html` erreichbar. Ihre ursprüngliche Dokumentation steht in [README-HERITAGE.md](README-HERITAGE.md).
+Die eigenständige Denkmal-/3D-Seite wurde entfernt. Die ursprüngliche Dokumentation des Projekts, auf dem Grün Atlas aufbaut, steht in [README-HERITAGE.md](README-HERITAGE.md).
 
 ## Enthalten
 
@@ -69,7 +69,7 @@ Die Dateien bleiben direkt unter `Apps/`, passend zum bestehenden Deployment-Kop
 
 Lokale Serverkonfiguration liegt in der ignorierten `.env`; in Netlify werden entsprechende Umgebungsvariablen gesetzt:
 
-- `CARTO_BASEMAP_API_KEY`: nur noch für den vorhandenen CARTO-Proxy der Bestandsansicht; Grün Atlas nutzt basemap.de ohne Schlüssel.
+- `CARTO_BASEMAP_API_KEY`: nur noch für den vorhandenen CARTO-Proxy; Grün Atlas nutzt basemap.de ohne Schlüssel.
 - `OPENROUTER_API_KEY`: optional für freie KI-Fragen; ausschließlich serverseitig.
 - `OPENROUTER_MODEL`: optionaler Modellname für den bestehenden Chat-Proxy.
 
@@ -83,7 +83,7 @@ npm run lint:atlas
 npm run build:netlify
 ```
 
-Netlify: Build `npm run build:netlify`, Publish-Verzeichnis `dist`. Der Root-Pfad leitet auf die App. Die separate Produktprüfung deckt Demo-Daten, Suchnormalisierung, Filter und Laufzeitdateien ab; Cesiums bestehende Tests bleiben verfügbar.
+Netlify: Build `npm run build:netlify`, Publish-Verzeichnis `dist`. Der Root-Pfad liefert die App direkt aus (Rewrite ohne sichtbaren Pfad, dazu `<base href="/Apps/">` in der Seite). Die separate Produktprüfung deckt Demo-Daten, Suchnormalisierung, Filter und Laufzeitdateien ab; Cesiums bestehende Tests bleiben verfügbar.
 
 Der Grünmeldungs-Layer versucht zuerst den Live-Abruf über `/api/sags-uns`. Wenn die Netlify-Funktion den städtischen Dienst nicht erreicht, liefert sie den zuletzt veröffentlichten Schnappschuss mit `snapshot: true`. Die Oberfläche kennzeichnet dann den Archivstand. GitHub Actions aktualisiert den Schnappschuss täglich um 04:17 UTC; der Workflow kann auch manuell gestartet werden. Falls GitHub Actions keine Schreibrechte auf `main` hat, muss die Repository-Einstellung für Workflow-Schreibrechte freigegeben werden.
 
