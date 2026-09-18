@@ -1,173 +1,81 @@
+# Grün Atlas Köln
 
-<img width="1186" height="706" alt="image" src="https://github.com/user-attachments/assets/2b86f052-00b7-414f-985d-4b70973679d4" />
+**Das digitale Grün der Stadt entdecken, verstehen und intelligent nutzen.**
 
+Entwickelt von der **Stadt Köln, Amt für Landschaftspflege und Grünflächen**.
 
+Eine eigenständige Urban-Green-Oberfläche auf der vorhandenen CesiumJS-Anwendung: helle Karte, Themen-Navigation, Smart Search, Ortskarten und GrünAI. Die technische Basis und Bestandsdaten bleiben erhalten.
 
-# Cologne Denkmal4D – Cesium 3D Heritage Visualization
+## Lokal starten
 
-
-https://digitalheritagelab.com/denkmal-4d-cologne-cesiumed/
-
-https://cologne-3d-denkmal.netlify.app/apps/3dheritagemapapp
-
-## Overview
-
-Cologne Denkmal4D is a 3D web-based cultural heritage visualization platform built with CesiumJS. The project enables interactive exploration of georeferenced 3D monument models within a realistic WGS84 globe environment.
-
-This repository contains the Cesium-based visualization layer of the Denkmal4D initiative.
-
----
-
-## Project Goals
-
-* Visualize Cologne’s monuments in 3D
-* Integrate geospatial metadata with 3D models
-* Provide immersive navigation experience
-* Enable scalable future integration of 3D Tiles
-* Support open cultural heritage data
-
----
-
-## Technical Architecture
-
-### Core Stack
-
-* CesiumJS
-* WebGL
-* JavaScript ES6
-* glTF model integration
-* WGS84 coordinate system
-
----
-
-## Scene Initialization
-
-The Cesium Viewer is initialized with terrain, imagery layers, and lighting configuration.
-
-```javascript
-const viewer = new Cesium.Viewer("cesiumContainer", {
-    terrainProvider: Cesium.createWorldTerrain(),
-    animation: false,
-    timeline: false,
-    shouldAnimate: false
-});
+```sh
+npm ci
+npm run build
+npm run start
 ```
 
-Lighting and atmospheric rendering are enabled to enhance spatial realism.
+Öffnen: http://localhost:8080/Apps/3DHeritageMapApp.html
 
----
+Die vorhandene Denkmal-/3D-Anwendung bleibt unter `/Apps/HeritageMap.html` erreichbar. Ihre ursprüngliche Dokumentation steht in [README-HERITAGE.md](README-HERITAGE.md).
 
-## Model Integration
+## Enthalten
 
-3D monument models are loaded as glTF assets and positioned geospatially.
+- Neun Grün-Themen mit 993 Kölner OSM-Orten (Datenstand 18. September 2026) und ausdrücklich gekennzeichnetem Demo-Fallback.
+- 107.853 städtische Einzelbäume aus dem Kölner Baumkataster als suchbare, bei nahem Zoom anklickbare Baum-Ebene.
+- Responsive Themen-Navigation, Entdecken-Karten und mobile Bottom Sheets.
+- Suche über Namen, Kategorien und Attribute; keine vorgetäuschte stadtweite Adresssuche.
+- Kontextfilter, Ebenenschalter, Deckkraft, Legende, Zoom zum Thema und anklickbare Kartenmarker.
+- Gemeinsame Ortskarten für Suchtreffer und Kartenobjekte; lokale Merkliste.
+- 45 zugeordnete Commons-Ortsbilder mit Urheber, Lizenz und Bildquelle direkt im Popup.
+- Helle CARTO-Grundkarte über bestehenden Serverproxy; OpenStreetMap als Fallback; optionales Ion-Luftbild.
+- Zoom, Standort mit Fehleranzeige, geneigte 3D-Ansicht und Vollbild.
+- GrünAI mit lokalen, regelbasierten Kartenaktionen und echten Treffern im Kartenausschnitt. Freie KI-Fragen sind optional über den vorhandenen Chat-Proxy verfügbar.
 
-```javascript
-const position = Cesium.Cartesian3.fromDegrees(longitude, latitude, height);
+## Daten und Grenzen
 
-viewer.entities.add({
-    name: "Monument",
-    position: position,
-    model: {
-        uri: "model.glb",
-        scale: 1.0
-    }
-});
+Die App lädt den begrenzten OpenStreetMap-Auszug aus `Apps/Data/green-atlas.geojson` und den separaten Schnappschuss des städtischen Baumkatasters aus `Apps/Data/baumkataster.json`. Sie zeigt Quelle, Datenstand und Lizenz je Ort. Die Demo-Orte sind nur noch ein gekennzeichneter Fallback für Installationen ohne OSM-Datei. Der OSM-Auszug ist keine Vollerhebung: je Thema sind höchstens 30–250 Orte enthalten, OSM-Bäume nur mit Namen. Auch das städtische Kataster umfasst nicht alle Bäume. Flächenpunkte liegen am Mittelpunkt des OSM-Umgrenzungsrechtecks und sind keine Eingänge. Anleitung und Grenzen: [DATENQUELLEN.md](DATENQUELLEN.md). Ein Teil der Ortskarten zeigt zugeordnete Commons-Bilder; die übrigen Illustrationen sind keine Ortsfotos. Es gibt noch keine Routenberechnung, Messdaten oder flächendeckende Adresssuche. Aussagen über Betrieb, Trinkwasserqualität, Leinenregeln oder Pflegezustände werden daraus nicht abgeleitet.
+
+Die 361 vorhandenen Denkmalobjekte und 3D-Metadaten bleiben unverändert. Der neue Kartenadapter verwendet denselben Cesium Viewer und separate Datenquellen. Neue Fachquellen können später an den Adapter angeschlossen werden; nicht implementierte WFS-/WMS-/PostGIS-Dienste werden nicht simuliert.
+
+## Architektur
+
+| Datei | Aufgabe |
+| --- | --- |
+| `Apps/3DHeritageMapApp.html` | Neue Produkthülle, Navigation und Metadaten |
+| `Apps/GreenAtlas.css` | Eigenständige Design Tokens, Layout und Responsive Styles |
+| `Apps/GreenAtlasData.js` | Themenkatalog, Datensatzwechsel, Suche und Filter |
+| `Apps/GreenTrees.js` | Baumkataster-Leser, Bereichsindex und stadtweite Baumsuche |
+| `scripts/import-overpass.mjs` | Import aus einem exportierten Overpass-JSON ohne Netzwerkanfragen |
+| `scripts/fetch-green-data.mjs` | Einmaliger Overpass-Abruf mit Größenlimit und Prüfung vor dem Ersetzen |
+| `scripts/update-green-photos.mjs` | Wikidata-P18-/Commons-Abruf mit Bildattribution und lokaler Vorschau |
+| `scripts/update-tree-cadastre.mjs` | Vollständiger WFS-Abruf und Koordinatentransformation des Baumkatasters |
+| `Apps/GreenAtlasMap.js` | Cesium-Datenquellen, Marker, Auswahl und räumlicher Kontext |
+| `Apps/GreenAtlas.js` | UI, wiederverwendbare Ortskarten, Merkliste und Navigation |
+| `Apps/GreenAI.js` | Neue Chat-Oberfläche, lokale Aktionen, optionale Serveranbindung |
+| `Apps/3DHeritageScripts.js` | Bestehende Karteninitialisierung mit separatem Grün-Atlas-Modus |
+| `Apps/AIChatBot.js` | Wiederverwendeter Chat-Lebenszyklus und Bestandsassistent |
+| `netlify/functions/` | Bestehende Chat- und Grundkarten-Proxys |
+
+Die Dateien bleiben direkt unter `Apps/`, passend zum bestehenden Deployment-Kopierer. Keine neue Bibliothek wurde ergänzt. Der Paketname `cesium` bleibt für die eingebettete Cesium-Distribution erhalten.
+
+## Konfiguration
+
+Lokale Serverkonfiguration liegt in der ignorierten `.env`; in Netlify werden entsprechende Umgebungsvariablen gesetzt:
+
+- `CARTO_BASEMAP_API_KEY`: optional für die helle Grundkarte. Ohne Konfiguration startet OpenStreetMap.
+- `OPENROUTER_API_KEY`: optional für freie KI-Fragen; ausschließlich serverseitig.
+- `OPENROUTER_MODEL`: optionaler Modellname für den bestehenden Chat-Proxy.
+
+Die lokale Merkliste verwendet `gruen-atlas:favorites` im Browser. Geolocation wird nur durch den Standort-Button angefordert. Freie KI-Fragen senden nach Aktivierung den Fragetext, Gesprächsverlauf und bis zu 30 sichtbare Orte mit Quellenangabe an den Server.
+
+## Prüfen und veröffentlichen
+
+```sh
+npm run test:atlas
+npm run lint:atlas
+npm run build:netlify
 ```
 
-Models are rendered using the Entity API for interactive control and metadata binding.
+Netlify: Build `npm run build:netlify`, Publish-Verzeichnis `dist`. Der Root-Pfad leitet auf die App. Die separate Produktprüfung deckt Demo-Daten, Suchnormalisierung, Filter und Laufzeitdateien ab; Cesiums bestehende Tests bleiben verfügbar.
 
----
-
-## Coordinate Handling
-
-All spatial positioning is based on WGS84.
-
-Cesium internally transforms geographic coordinates into high precision Cartesian3 (ECEF) coordinates for accurate globe rendering.
-
----
-
-## Interaction Design
-
-* Camera flyTo navigation
-* Click-based metadata display
-* Hover detection
-* Custom UI overlay panels
-
----
-
-## Performance Strategy
-
-* Lazy loading of models
-* Controlled camera transitions
-* Reduced draw calls
-* Prepared migration path to 3D Tiles for large scale datasets
-* Optional requestRenderMode optimization for static scenes
-
----
-
-## Scalability Roadmap
-
-* Conversion pipeline to 3D Tiles
-* Level of Detail (LOD) management
-* Self-hosted tileset streaming architecture
-* Integration of photogrammetry-based models
-* Time-dynamic visualization layers
-
----
-
-## GeoAI Chat (optional LLM mode)
-
-The GeoAI assistant has two modes:
-
-* **Offline mode** (default): built-in keyword commands — works without any setup.
-* **LLM mode**: free-form German/English questions answered by a language model via [OpenRouter](https://openrouter.ai). The model can drive the map (fly to monuments, switch base maps, filter markers, toggle building layers, start the tour) through a validated action protocol.
-
-The browser never sees the API key — requests go through `/api/chat`:
-
-* **Local development**: handled by `server.js`. Put the key in a `.env` file in the repo root (gitignored): `OPENROUTER_API_KEY=sk-or-v1-...`
-* **Netlify production**: handled by `netlify/functions/chat.mjs`. Set `OPENROUTER_API_KEY` under *Site configuration → Environment variables*, then redeploy.
-
-Optional: `OPENROUTER_MODEL` overrides the chat model (default: `meta-llama/llama-3.3-70b-instruct:free`). Free-tier models are rate-limited by OpenRouter; if the LLM is unreachable, the chat automatically falls back to offline commands.
-
----
-
-## Partner Project
-
-Denkmal4D Köln
-[https://codefor.de/projekte/cologne-denkmal4d/](https://codefor.de/projekte/cologne-denkmal4d/)
-
----
-
-## Developer
-
-Primary Cesium Developer:
-
-Name: Ertan Özcan
-GitHub: [[ErtanOz]](https://github.com/ErtanOz)
-
-Contribution Area:
-
-* CesiumJS 3D visualization architecture
-* Geospatial model integration
-* Scene configuration and optimization
-* SmarCity
-* GeoAI
-
----
-
-## Why CesiumJS
-
-CesiumJS provides:
-
-* High precision WGS84 globe rendering
-* WebGL hardware acceleration
-* 3D Tiles streaming support
-* Open standards compatibility
-* Scalable architecture for city-scale visualization
-
----
-
-## License
-
-Apache 2.0 (CesiumJS runtime)
-Project-specific components follow repository licensing.
+Siehe [REDESIGN-REVIEW.md](REDESIGN-REVIEW.md) für Prüfstand und Grenzen. Lizenz und Attribution der Cesium-Basis sowie Digital Heritage Lab, Ertan Özcan und OK Lab Köln bleiben erhalten.

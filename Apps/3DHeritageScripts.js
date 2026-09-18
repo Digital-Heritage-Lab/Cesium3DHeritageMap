@@ -50,6 +50,17 @@ const config = {
 // Cesium Ion access token
 Cesium.Ion.defaultAccessToken = config.ionAccessToken;
 
+// The new product shares the engine; the heritage view retains its defaults.
+if (window.GREEN_ATLAS_MODE) {
+    Object.assign(config, {
+        enable3DTiles: false,
+        useGooglePhotorealistic: false,
+        baseMapDefaultId: 'basemap-libre',
+        baseMapFallbackId: 'osm',
+        cologne: { longitude: 6.96, latitude: 50.942, height: 15500, heading: 0, pitch: -90 }
+    });
+}
+
 function getConfigNumber(value, fallback) {
     const numberValue = Number(value);
     return Number.isFinite(numberValue) ? numberValue : fallback;
@@ -312,7 +323,16 @@ async function createBaseLayer() {
         ? getFallbackBaseMapId()
         : configuredBaseMapId;
     const resolvedId = resolveBaseMapId(requestedId);
-    const baseLayer = await createBaseLayerFromId(resolvedId);
+    let baseLayer;
+    try {
+        baseLayer = await createBaseLayerFromId(resolvedId);
+    } catch (error) {
+        if (!window.GREEN_ATLAS_MODE) throw error;
+        baseLayer = await createBaseLayerFromId('osm');
+        currentBaseMapId = 'osm';
+        currentImageryBaseMapId = 'osm';
+        return baseLayer;
+    }
     if (baseLayer) {
         currentBaseMapId = resolvedId;
         currentImageryBaseMapId = resolvedId;
@@ -1176,6 +1196,7 @@ const radios = {
 
 // Add event listeners to radio buttons
 for (const radioId in radios) {
+    if (!radios[radioId]) continue;
     radios[radioId].addEventListener('change', () => {
         // Update active class on labels
         const labels = document.querySelectorAll('#optionsBox label');
@@ -1820,7 +1841,7 @@ async function loadGeoJson() {
  * @returns {string} - The value of the parameter.
  */
 function getUrlParameter(name) {
-    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    name = name.replace(/\[/, '\\[').replace(/\]/, '\\]');
     var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
     var results = regex.exec(location.search);
     return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
@@ -1862,6 +1883,9 @@ async function initViewer() {
         createBaseLayer()
     ]);
     const viewerOptions = {
+        geocoder: !window.GREEN_ATLAS_MODE,
+        homeButton: !window.GREEN_ATLAS_MODE,
+        fullscreenButton: !window.GREEN_ATLAS_MODE,
         baseLayer: baseLayer,
         baseLayerPicker: false,
         sceneModePicker: false,
@@ -1904,9 +1928,9 @@ async function initViewer() {
     }
 
     // Enable 3D lighting
-    viewer.scene.globe.enableLighting = true;
+    viewer.scene.globe.enableLighting = !window.GREEN_ATLAS_MODE;
 
-    assetsReady = loadAssets();
+    if (!window.GREEN_ATLAS_MODE) assetsReady = loadAssets();
     if (eagerLoadOptionalTilesets) {
         void loadOsmBuildings();
         void loadLod2Tilesets();
@@ -1922,7 +1946,7 @@ async function initViewer() {
         }
     }
 
-    void loadGeoJson()
+    if (!window.GREEN_ATLAS_MODE) void loadGeoJson()
         .finally(() => {
             hideLoading();
             activateDeferredInitialPhotorealistic();
@@ -1982,6 +2006,10 @@ async function initViewer() {
             focusEntityMarker(pickedId, 1.8);
         }
     }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    if (window.GREEN_ATLAS_MODE) {
+        hideLoading();
+        await window.GreenAtlas.mount(viewer);
+    }
 }
 
 /**
@@ -2181,6 +2209,7 @@ function togglePanel(panelKey) {
 }
 
 // Setup event listeners for all panels
+if (!window.GREEN_ATLAS_MODE) {
 document.getElementById('openOptionsBox').onclick = () => {
     togglePanel('options');
 };
@@ -2228,7 +2257,9 @@ document.getElementById('toggleAiChat').onclick = () => {
     }
     togglePanel('aichat');
 };
+}
 
 initViewer().catch((error) => {
     console.error('Cesium initialization failed:', error);
+    if (window.GREEN_ATLAS_MODE) window.GreenAtlas.showError('Die Karte konnte nicht gestartet werden. Bitte lade die Seite neu.');
 });

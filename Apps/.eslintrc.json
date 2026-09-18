@@ -1,3 +1,8 @@
 {
-    "extends": "../packages/.eslintrc.json"
+    "root": true,
+    "extends": "eslint:recommended",
+    "env": { "browser": true, "es2022": true },
+    "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
+    "globals": { "Cesium": "readonly", "GreenData": "readonly", "GreenTrees": "readonly", "GreenAtlas": "readonly", "GreenMap": "readonly", "GreenAI": "readonly", "HeritageAIChat": "readonly", "createOsmImageryProvider": "readonly", "createOnlineImageryProvider": "readonly", "createBasemapLibreProvider": "readonly", "currentBaseMapId": "readonly" },
+    "rules": { "no-unused-vars": "warn" }
 }
