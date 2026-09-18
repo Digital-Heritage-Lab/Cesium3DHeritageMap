@@ -199,6 +199,7 @@ window.GreenMap = class GreenMap {
       this.treeIds.delete(id);
     }
     const marker = this.marker(GreenData.theme('trees'));
+    const color = Cesium.Color.WHITE.withAlpha(this.opacity.trees ?? 1);
     for (const feature of nearby) {
       if (this.treeIds.has(feature.id)) continue;
       const [lon, lat] = feature.geometry.coordinates;
@@ -206,7 +207,7 @@ window.GreenMap = class GreenMap {
         id: feature.id,
         name: feature.properties.name,
         position: Cesium.Cartesian3.fromDegrees(lon, lat, 5),
-        billboard: { image: marker, width: 28, height: 33,
+        billboard: { image: marker, color, width: 28, height: 33,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
           disableDepthTestDistance: Number.POSITIVE_INFINITY },
       });

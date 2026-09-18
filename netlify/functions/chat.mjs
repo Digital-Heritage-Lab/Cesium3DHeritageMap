@@ -7,7 +7,9 @@
 //
 // The same endpoint exists in server.js for local development.
 
-const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+import { createRateLimiter, sanitizeMessages } from "../../scripts/chat-guard.mjs";
+
+const DEFAULT_MODEL ="meta-llama/llama-3.3-70b-instruct:free";
 // Free models are often rate-limited upstream; when the primary model fails
 // with a retryable error, the proxy tries these in order. Free slugs rotate —
 // check https://openrouter.ai/api/v1/models (ids ending in ":free") when all
@@ -17,8 +19,6 @@ const FALLBACK_MODELS = [
   "google/gemma-4-31b-it:free",
   "qwen/qwen3-next-80b-a3b-instruct:free",
 ];
-const MAX_MESSAGES = 24;
-const MAX_TOTAL_CHARS = 24000;
 const MAX_OUTPUT_TOKENS = 400;
 // Netlify synchronous functions time out at 10s; abort upstream a bit earlier
 // so the browser gets a clean JSON error instead of a platform 502.
@@ -43,29 +43,9 @@ function getNetlifyEnv(name) {
   return process.env[name];
 }
 
-// Accept only plain {role, content} text messages and enforce size caps so the
-// public endpoint cannot be used as a general-purpose proxy for the key.
-function sanitizeMessages(raw) {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return null;
-  }
-  const allowedRoles = new Set(["system", "user", "assistant"]);
-  const messages = [];
-  let totalChars = 0;
-  for (const entry of raw.slice(-MAX_MESSAGES)) {
-    if (!entry || !allowedRoles.has(entry.role) || typeof entry.content !== "string") {
-      return null;
-    }
-    totalChars += entry.content.length;
-    if (totalChars > MAX_TOTAL_CHARS) {
-      return null;
-    }
-    messages.push({ role: entry.role, content: entry.content });
-  }
-  return messages;
-}
+const allowRequest = createRateLimiter();
 
-export default async (req) => {
+export default async (req, context) => {
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "method_not_allowed" });
   }
@@ -74,6 +54,12 @@ export default async (req) => {
   const origin = req.headers.get("origin");
   if (origin && origin !== new URL(req.url).origin) {
     return jsonResponse(403, { error: "forbidden" });
+  }
+
+  const clientIp =
+    (context && context.ip) || req.headers.get("x-nf-client-connection-ip") || "unknown";
+  if (!allowRequest(clientIp)) {
+    return jsonResponse(429, { error: "rate_limited" });
   }
 
   const apiKey = getNetlifyEnv("OPENROUTER_API_KEY");
