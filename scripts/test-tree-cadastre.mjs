@@ -36,7 +36,9 @@ test('Browser tree catalog finds a tree by its city number and limits viewport r
   assert.equal(await trees.load(), true);
   assert.equal(trees.count, snapshot.count);
   const first = snapshot.trees[0];
-  assert.equal(trees.search(first[0].split('@')[0], 1)[0].properties.sourceKind, 'cadastre');
+  const found = trees.search(first[0].split('@')[0], 1)[0];
+  assert.equal(found.properties.sourceKind, 'cadastre');
+  assert.equal(found.properties.treeNumber, first[0].split('@')[0]);
   const box = [first[1] - 0.001, first[2] - 0.001, first[1] + 0.001, first[2] + 0.001];
   assert.ok(trees.inBounds(box, 10).some((item) => item.id === `citytree-${first[0]}`));
   assert.ok(trees.inBounds([6.8, 50.8, 7.2, 51.11], 30).length <= 30);

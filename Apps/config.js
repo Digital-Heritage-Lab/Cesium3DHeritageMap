@@ -1,7 +1,7 @@
 // configuration for Cesium3DHeritageMap
 export const config = {
     // Cesium Ion access token
-    ionAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMjhiN2RhOC1lYThlLTQ3NGEtYWQ3NC05YjRmOTI5M2M0OWEiLCJpZCI6NzgzODEsImlhdCI6MTcxMDc5ODQ0MH0.nuQD0pwTIy_aHKIqEGLzrhxCCCelkCHyNeJURm3v-Q8",
+    ionAccessToken: "",
 
     // API URLs
     monumentsRemoteUrl: 'https://opendem.info/cgi-bin/getDenkmal.py',

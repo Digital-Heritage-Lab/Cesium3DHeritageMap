@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { sanitizeMessages } from './chat-guard.mjs';
+import { questions } from './green-ai-questions.mjs';
 
 const appFile = (name) => new URL(`../Apps/${name}`, import.meta.url);
 const readJson = async (name) => JSON.parse(await readFile(appFile(name), 'utf8'));
@@ -247,7 +248,7 @@ test('Nur bekannte Felder überleben die Validierung', () => {
   useAtlas();
   const checked = GreenAITools.validate({ type: 'show_theme', theme: 'water', code: 'alert(1)', selector: '#x' });
   assert.deepEqual(JSON.parse(JSON.stringify(checked.action)), { type: 'show_theme', theme: 'water' });
-  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 13);
+  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 15);
 });
 
 test('Der <action>-Block wird aus dem sichtbaren Text entfernt', () => {
@@ -290,4 +291,84 @@ test('Performance: Essbar-Auswertung und Ausschnitt-Zählung bleiben schnell', a
   const viewport = performance.now() - start;
   console.log(`edible all_loaded ${cold.toFixed(0)} ms, viewport(city) ${viewport.toFixed(0)} ms`);
   assert.ok(cold < 1500 && viewport < 1500);
+});
+
+test('Fragenkatalog: 50 bis 100 lokale Formulierungen wählen passende Actions', () => {
+  useAtlas();
+  assert.ok(questions.length >= 50 && questions.length <= 100, questions.length);
+  for (const item of questions) {
+    const intent = GreenAITools.localIntent(item.text);
+    assert.ok(intent, item.text);
+    const actions = intent.actions || [intent.action];
+    assert.ok(actions.every(Boolean), item.text);
+    if (item.types) assert.deepEqual(JSON.parse(JSON.stringify(actions.map((a) => a.type))), item.types, item.text);
+    if (item.type) assert.equal(actions[0].type, item.type, item.text);
+    if (item.theme) assert.equal(actions[0].theme, item.theme, item.text);
+    if (item.metric) assert.equal(actions[0].metric, item.metric, item.text);
+    if (item.origin) assert.equal(actions[0].origin, item.origin, item.text);
+    if (item.district) assert.ok(actions[0].district, item.text);
+  }
+});
+
+test('Stadtteil, Baumrang und benannter Ausgangsort liefern Datenantworten', async () => {
+  useAtlas();
+  const playgrounds = await GreenAITools.handleLocal('Spielplätze in Ehrenfeld');
+  assert.equal(playgrounds.action.type, 'list_features');
+  assert.match(playgrounds.message, /Stadtteil: Ehrenfeld/);
+  const oldest = await GreenAITools.handleLocal('Die ältesten Bäume hier');
+  assert.match(oldest.message, /erfasstem Pflanzjahr/);
+  assert.match(oldest.message, /Datensätze mit Wert ausgewertet/);
+  const ranking = await GreenAITools.handleLocal('Welcher Stadtteil hat die meisten Bäume?');
+  assert.equal(ranking.action.type, 'rank_districts');
+  assert.match(ranking.message, /Baumkataster Stadt Köln/);
+  const near = await GreenAITools.handleLocal('Brunnen in der Nähe vom Melatenfriedhof');
+  assert.equal(near.action.origin, 'object');
+  assert.equal(near.action.theme, 'water');
+  assert.match(near.message, /Melaten/);
+});
+
+test('Folgefragen und mehrere Actions nutzen nur erfolgreich validierten Zustand', async () => {
+  const map = useAtlas();
+  const state = {};
+  const first = await GreenAITools.handleLocal('Zeige essbare Bäume', state);
+  assert.equal(first.ok, true);
+  const follow = await GreenAITools.handleLocal('und davon nur Kirschen', state);
+  assert.equal(follow.action.species, 'Kirsche');
+  assert.equal(state.lastAction.species, 'Kirsche');
+  const combined = await GreenAITools.handleLocal('Zeige Bäume und Meldungen', state);
+  assert.deepEqual(JSON.parse(JSON.stringify(combined.actions.map((a) => a.type))), ['show_theme', 'show_reports']);
+  const before = map.calls.length;
+  const rejected = await GreenAITools.runActions([{ type: 'show_theme', theme: 'water' }, { type: 'eval' }]);
+  assert.equal(rejected.ok, false);
+  assert.equal(map.calls.length, before, 'prevalidation must prevent partial changes');
+  assert.equal((await GreenAITools.runActions(Array(4).fill({ type: 'get_map_context' }))).ok, false);
+});
+
+test('Mehrdeutige und fehlende Ortsnamen ändern die Karte nicht', async () => {
+  const map = useAtlas();
+  const before = JSON.stringify(map.calls);
+  const ambiguous = await GreenAITools.handleLocal('Brunnen in der Nähe vom Park');
+  assert.match(ambiguous.message, /Mehrere Orte passen/);
+  const missing = await GreenAITools.handleLocal('Brunnen in der Nähe vom Fantasieort');
+  assert.match(missing.message, /nicht eindeutig gefunden/);
+  assert.equal(JSON.stringify(map.calls), before);
+});
+
+test('Modellblöcke werden vollständig gelesen und Fehler stoppen Action-Folgen', async () => {
+  const map = useAtlas();
+  const blocks = GreenAITools.parseActionBlocks('Text <action>{"type":"show_theme","theme":"trees"}</action> <action>{"type":"show_reports","visible":true}</action>');
+  assert.equal(blocks.length, 2);
+  assert.equal(GreenAITools.parseActionBlocks('<action>{bad}</action>'), null);
+  const state = {};
+  const partial = await GreenAITools.runActions([
+    { type: 'show_theme', theme: 'trees' },
+    { type: 'filter_features', theme: 'play', filters: { ageGroup: 'unbekannter Wert' } },
+    { type: 'show_theme', theme: 'water' },
+  ]);
+  assert.equal(partial.ok, false);
+  assert.equal(partial.actions.length, 1);
+  assert.match(partial.message, /Nach 1 Aktion/);
+  assert.equal(map.calls.some((call) => call[0] === 'setFilter' && call[1] === 'water'), false);
+  GreenAITools.remember(state, partial);
+  assert.equal(state.lastAction.theme, 'trees');
 });

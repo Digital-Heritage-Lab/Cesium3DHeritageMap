@@ -107,6 +107,7 @@
   "scripts": {
     "test:atlas": "node --test scripts/test-green-atlas.mjs scripts/test-overpass-import.mjs scripts/test-green-photos.mjs scripts/test-tree-cadastre.mjs scripts/test-sags-uns.mjs scripts/test-chat-guard.mjs scripts/test-green-ai-tools.mjs",
     "data:refresh": "node scripts/fetch-green-data.mjs",
+    "districts:refresh": "node scripts/update-districts.mjs && node scripts/annotate-green-districts.mjs",
     "photos:refresh": "node scripts/update-green-photos.mjs",
     "trees:refresh": "node scripts/update-tree-cadastre.mjs",
     "lint:atlas": "eslint Apps/GreenAtlas.js Apps/GreenAtlasData.js Apps/GreenTrees.js Apps/GreenReports.js Apps/GreenAtlasMap.js Apps/GreenAITools.js Apps/GreenAI.js Apps/3DHeritageScripts.js --quiet",

@@ -1,14 +1,13 @@
 // Configuration
-// SECURITY: All Ion access tokens below are shipped to every browser. They MUST be
-// referer-restricted in the Cesium Ion console (Access Tokens -> Allowed URLs) to the
-// production Netlify domain (and any staging domains). Rotate here if any restriction
-// is missing or if a token is suspected of being abused.
+// Public deployment configuration. Keep credentials out of this browser bundle.
+// The Grün Atlas uses public basemaps by default; legacy 3D assets require an
+// explicitly configured, referer-restricted Cesium Ion token at deployment time.
 const config = {
-    ionAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMjhiN2RhOC1lYThlLTQ3NGEtYWQ3NC05YjRmOTI5M2M0OWEiLCJpZCI6NzgzODEsImlhdCI6MTcxMDc5ODQ0MH0.nuQD0pwTIy_aHKIqEGLzrhxCCCelkCHyNeJURm3v-Q8",
+    ionAccessToken: "",
     lod2WestIonAssetId: 4382415,
-    lod2WestIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c",
+    lod2WestIonToken: "",
     lod2EastIonAssetId: 4383827,
-    lod2EastIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI",
+    lod2EastIonToken: "",
     monumentsRemoteUrl: 'https://opendem.info/cgi-bin/getDenkmal.py',
     monumentsLocalUrl: 'Data/denkmaeler.json',
     assetsUrl: 'Data/assets.json',

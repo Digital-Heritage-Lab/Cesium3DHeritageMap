@@ -57,6 +57,7 @@ window.GreenAtlas = (() => {
     ai,
     favorites = new Set(),
     toastTimer,
+    searchTimer,
     lastTrigger,
     viewOnly = false,
     reportLoading = false,
@@ -91,13 +92,18 @@ window.GreenAtlas = (() => {
   }
   function resultCard(f) {
     const t = GreenData.theme(f.properties.theme);
+    const source = f.properties.sourceKind === "cadastre"
+      ? `Baum-Nr. ${f.properties.treeNumber || "unbekannt"} · Baumkataster Stadt Köln`
+      : isRealData()
+      ? "OpenStreetMap"
+      : "Demo";
     return `<button class="result-card" data-object="${escape(
       f.id
     )}"><span class="result-icon" style="color:${t.color}">${icon(
       t.icon
     )}</span><span><strong>${escape(f.properties.name)}</strong><small>${escape(
       f.properties.place
-    )} · ${f.properties.sourceKind === "cadastre" ? "Baumkataster Stadt Köln" : isRealData() ? "OpenStreetMap" : "Demo"}</small></span>${icon("arrow")}</button>`;
+    )} · ${escape(source)}</small></span>${icon("arrow")}</button>`;
   }
   function renderExplore() {
     const cards = [
@@ -532,6 +538,10 @@ window.GreenAtlas = (() => {
         : cityMatches.length ? "" : '<p class="empty-state">Hier ist noch kein Ort erfasst.<br>Probiere „Park“, „Linde“ oder „Melaten“.</p>') +
       (cityMatches.length ? `<div class="search-group">Städtisches Baumkataster</div>${cityMatches.map(resultCard).join("")}` : "");
   }
+  function scheduleSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(search, 180);
+  }
   function hideSearch() {
     $("searchResults").hidden = true;
     $("greenSearch").setAttribute("aria-expanded", "false");
@@ -551,9 +561,8 @@ window.GreenAtlas = (() => {
     $("greenAIButton").setAttribute("aria-expanded", "false");
   }
   // Deterministic, network-free intent handling; resolves to a reply text or null when a language model is needed.
-  async function aiLocal(text) {
-    const result = await GreenAITools.handleLocal(text);
-    return result ? result.message : null;
+  async function aiLocal(text, state) {
+    return GreenAITools.handleLocal(text, state);
   }
   async function changeBasemap(id) {
     const status = $("basemapStatus");
@@ -716,7 +725,7 @@ window.GreenAtlas = (() => {
           Number(event.target.value) / 100
         );
     });
-    $("greenSearch").addEventListener("input", search);
+    $("greenSearch").addEventListener("input", scheduleSearch);
     $("greenSearch").addEventListener("focus", search);
     $("greenSearch").addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {

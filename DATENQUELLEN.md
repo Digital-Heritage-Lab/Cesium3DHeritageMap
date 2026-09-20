@@ -12,6 +12,12 @@ Der Import nimmt Parks, Spielplätze, Hundeauslauf, Gärten, Friedhöfe, Brunnen
 
 Jeder importierte Datensatz behält OSM-Typ/ID als stabile Kennung, einen direkten OSM-Link, ODbL-Angabe, den Zeitstempel der OSM-Datenbank und bei vorhandenem `wikidata=Q…` einen Wikidata-Link. Der Herkunftshinweis erscheint in der Ortskarte. [OpenStreetMap-Daten und Lizenz](https://www.openstreetmap.org/copyright), [Overpass API und Nutzungsgrenzen](https://wiki.openstreetmap.org/wiki/Overpass_API).
 
+## Kölner Stadtteile
+
+Die 86 Stadtteilgrenzen stammen aus [Offene Daten Köln: Stadtteile](https://www.offenedaten-koeln.de/dataset/stadtteile-k%C3%B6ln), bereitgestellt als GeoJSON über den dort referenzierten ArcGIS-Dienst. Lizenz: Datenlizenz Deutschland – Zero – Version 2.0. Der lokale Schnappschuss `Apps/Data/stadtteile-koeln.geojson` enthält Quelle und Abrufzeitpunkt. `npm run districts:refresh` prüft die Anzahl der Flächen und ordnet die Punkte des vorhandenen OSM-Auszuges per Punkt-in-Polygon neu zu. `npm run data:refresh` verwendet die zuletzt gespeicherten Grenzen für neue OSM-Daten.
+
+Die Zuordnung beschreibt den Kartenanker des OSM-Objekts. Bei Flächen ist das weiterhin der Mittelpunkt des Umgrenzungsrechtecks; ein Objekt an einer Stadtteilgrenze kann deshalb anders zugeordnet sein als seine gesamte Fläche. Ohne eindeutige Zuordnung bleibt das Stadtteilfeld leer und GrünAI weist bei Stadtteilfragen auf die fehlenden Orte hin.
+
 ## Ortsbilder aus Wikimedia Commons
 
 45 der 993 Ortskarten zeigen ein Bild aus Wikimedia Commons. Die Zuordnung erfolgt ausschließlich über die Wikidata-ID am jeweiligen OSM-Objekt und dessen Bild-Eigenschaft P18; ein ähnlicher Ortsname allein reicht nicht. Der Abruf prüft die Commons-Metadaten, speichert eine verkleinerte Bilddatei lokal und schreibt Urheber, Bildlizenz und Commons-Dateiseite in `Apps/Data/green-photos.json`. Diese Angaben sind im jeweiligen Popup verlinkt. Vier bei der Sichtprüfung unpassende P18-Motive sind dauerhaft vom Import ausgeschlossen. Orte ohne geprüftes Bild behalten die schematische Illustration.

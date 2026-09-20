@@ -14,7 +14,7 @@ window.GreenData = (() => {
         species: "Baumart",
         condition: "Zustand",
         age: "Alter",
-        district: "Stadtbezirk",
+        district: "Stadtteil",
       },
       prompts: ["Welche Baumarten gibt es hier?", "Essbare Bäume zeigen", "Bäume in diesem Bereich"],
     },
@@ -27,7 +27,7 @@ window.GreenData = (() => {
       description:
         "Eine Pause am Weiher, eine Runde durch den Grüngürtel. Entdecke Kölns grüne Freiräume.",
       layer: "Parks & Grünflächen",
-      filters: { district: "Stadtbezirk" },
+      filters: { district: "Stadtteil" },
       prompts: ["Grünflächen in diesem Bereich", "Wo ist der nächste Park?"],
     },
     {
@@ -55,7 +55,7 @@ window.GreenData = (() => {
       description:
         "Entdecke erfasste Hundeauslaufflächen. Regeln und Beschilderung vor Ort beachten.",
       layer: "Hundeauslaufflächen",
-      filters: { district: "Stadtbezirk" },
+      filters: { district: "Stadtteil" },
       prompts: ["Hundeauslauf in diesem Bereich"],
     },
     {
@@ -79,7 +79,7 @@ window.GreenData = (() => {
       description:
         "Stille Wege, alte Bäume und Stadtgeschichte. Entdecke Friedhöfe aus einem neuen Blickwinkel.",
       layer: "Friedhöfe",
-      filters: { district: "Stadtbezirk" },
+      filters: { district: "Stadtteil" },
       prompts: ["Friedhöfe in diesem Bereich"],
     },
     {

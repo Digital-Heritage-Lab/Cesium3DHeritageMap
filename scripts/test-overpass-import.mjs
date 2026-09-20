@@ -4,6 +4,20 @@ import { convertOverpass } from './import-overpass.mjs';
 import { fetchGreenData } from './fetch-green-data.mjs';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { loadDistricts, districtAt } from './cologne-districts.mjs';
+
+test('Stadtteilgrenzen ordnen OSM-Punkte eindeutig zu', async () => {
+  const boundaries = await loadDistricts();
+  const snapshot = JSON.parse(await readFile(new URL('../Apps/Data/green-atlas.geojson', import.meta.url), 'utf8'));
+  assert.equal(boundaries.features.length, 86);
+  assert.equal(districtAt(boundaries, 0, 0), null);
+  assert.ok(snapshot.features.every((feature) => {
+    const [lon, lat] = feature.geometry.coordinates;
+    const assigned = districtAt(boundaries, lon, lat);
+    return assigned?.name === feature.properties.district;
+  }));
+  assert.equal(snapshot.districtSourceUrl, boundaries.sourceUrl);
+});
 
 test('Overpass import preserves verifiable origin and excludes unsupported or misplaced records', () => {
   const data = convertOverpass({ osm3s: { timestamp_osm_base: '2026-09-18T10:00:00Z' }, elements: [

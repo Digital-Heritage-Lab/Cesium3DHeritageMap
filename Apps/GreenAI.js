@@ -4,6 +4,10 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
   registerCommands() {
     return [];
   }
+  clearHistory() {
+    super.clearHistory();
+    this.sessionState = {};
+  }
   initUI() {
     const { icon } = GreenAtlas;
     const panel = document.createElement("section");
@@ -29,7 +33,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
   }
   addInitialMessage() {
     this.addMessage(
-      `Was möchtest du über das Kölner Grün wissen? Ich kann Themen einblenden, ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} und Bäume im Kartenausschnitt zählen und auflisten, essbare Bäume und Grünmeldungen zeigen und Orte in deiner Nähe finden.`,
+      `Was möchtest du über das Kölner Grün wissen? Ich kann Themen einblenden, ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} nach Stadtteil finden, Baumdaten vergleichen und Orte in der Nähe eines bekannten Orts zeigen. Anschlussfragen wie „und davon nur Kirschen“ funktionieren ebenfalls.`,
       "ai"
     );
   }
@@ -39,10 +43,10 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
     const defaults = [
       ["tree", "Bäume hier entdecken"],
       ["tree", "Essbare Bäume zeigen"],
-      ["play", "Spielplätze in der Nähe"],
+      ["play", "Spielplätze in Ehrenfeld"],
+      ["tree", "Die ältesten Bäume hier"],
       ["report", "Grünmeldungen anzeigen"],
-      ["water", "Brunnen entdecken"],
-      ["arch", "Friedhöfe erkunden"],
+      ["water", "Brunnen in der Nähe vom Melatenfriedhof"],
     ];
     const prompts = theme
       ? theme.prompts.map((p) => [theme.icon, p])
@@ -78,17 +82,18 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
   async routeInput(text) {
     this.busy = true;
     this.sendBtn.disabled = true;
+    this.sessionState ||= {};
     try {
       let local;
       try {
-        local = await GreenAtlas.aiLocal(text);
+        local = await GreenAtlas.aiLocal(text, this.sessionState);
       } catch (error) {
         console.warn("[GreenAI] local action failed", error);
         this.addMessage("Die Kartenaktion konnte nicht ausgeführt werden.", "ai");
         return;
       }
       if (local) {
-        this.addMessage(local, "ai");
+        this.addMessage(local.message, "ai");
         return;
       }
       if (!document.getElementById("aiRemoteMode").checked) {
@@ -113,7 +118,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       this.hideTypingIndicator();
     }
   }
-  // One request per question. The model returns an intent (an <action> block); numbers, lists and
+  // One request per question. The model returns intents in <action> blocks; numbers, lists and
   // distances in the visible answer always come from GreenAITools, never from the model text.
   async askModel(text) {
     console.debug("[GreenAI] remote intent");
@@ -127,7 +132,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
         signal: controller.signal,
         body: JSON.stringify({
           messages: [
-            { role: "system", content: GreenAITools.buildSystemPrompt() },
+            { role: "system", content: GreenAITools.buildSystemPrompt(this.sessionState) },
             ...this.conversation.slice(-10),
             { role: "user", content: text },
           ],
@@ -146,10 +151,13 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       { role: "assistant", content: reply }
     );
     this.conversation = this.conversation.slice(-12);
-    const { action, displayText } = this.extractAction(reply);
-    if (action) {
-      this.addMessage((await GreenAITools.run(action)).message, "ai");
-    } else if (/<action>/i.test(reply)) {
+    const actions = GreenAITools.parseActionBlocks(reply);
+    const displayText = reply.replace(/<action>[\s\S]*?<\/action>/gi, "").trim();
+    if (actions?.length) {
+      const result = await GreenAITools.runActions(actions);
+      GreenAITools.remember(this.sessionState, result);
+      this.addMessage(result.message, "ai");
+    } else if (actions === null) {
       console.warn("[GreenAI] action rejected: unreadable action block");
       this.addMessage("Diese Aktion kann ich nicht ausführen.", "ai");
     } else {

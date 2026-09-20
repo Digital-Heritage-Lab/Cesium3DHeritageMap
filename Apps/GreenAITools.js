@@ -16,6 +16,8 @@ window.GreenAITools = (() => {
     "show_reports",
     "filter_reports",
     "get_map_context",
+    "rank_trees",
+    "rank_districts",
   ];
   // Recognised but not implemented yet (Phase 2); they are rejected with a clear message.
   const PLANNED_ACTIONS = ["calculate_route", "spatial_analysis", "compare_areas"];
@@ -39,7 +41,7 @@ window.GreenAITools = (() => {
     { key: "birne", label: "Birne", category: "fruit", botanical: ["pyrus communis"],
       names: [["birne", "pyrus"]], aliases: ["birne", "birnbaum", "birnbaume", "birnenbaum", "birnenbaume"] },
     { key: "kirsche", label: "Kirsche", category: "fruit", botanical: ["prunus avium"],
-      names: [["kirsche", "prunus"]], aliases: ["kirsche", "kirschbaum", "kirschbaume"] },
+      names: [["kirsche", "prunus"]], aliases: ["kirsche", "kirschen", "kirschbaum", "kirschbaume"] },
     { key: "pflaume", label: "Pflaume", category: "fruit",
       botanical: ["prunus domestica", "prunus domestica italica", "prunus domestica syriaca"], names: [],
       aliases: ["pflaume", "pflaumenbaum", "pflaumenbaume", "zwetschge", "zwetschgen", "zwetschgenbaum"] },
@@ -114,6 +116,15 @@ window.GreenAITools = (() => {
   const reports = () => window.GreenReports;
   const atlas = () => window.GreenAtlas;
   const map = () => atlas()?.getMap?.();
+  let knownDistricts;
+  const districtNames = () => {
+    if (knownDistricts) return knownDistricts;
+    const names = new Set(data().collection.features.map((f) => f.properties.district).filter(Boolean));
+    trees().forEachRow((row) => { if (row[6]) names.add(row[6]); });
+    knownDistricts = [...names];
+    return knownDistricts;
+  };
+  const resolveDistrict = (value) => districtNames().find((name) => norm(name) === norm(value));
   const log = (event, detail) => console.debug(`[GreenAI] ${event}`, detail ?? "");
   const number = (value) => value.toLocaleString("de-DE");
   const plural = (n, one, many) => `${number(n)} ${n === 1 ? one : many}`;
@@ -240,11 +251,32 @@ window.GreenAITools = (() => {
           }
           if (action.theme === REPORTS) Object.assign(action, reportParams(raw));
           else Object.assign(action, treeParams(raw, action.theme ?? "trees"));
+          if (raw.district !== undefined) {
+            action.district = resolveDistrict(str(raw.district, 60));
+            if (!action.district) fail("Diesen Kölner Stadtteil kenne ich nicht.");
+          }
+          break;
+        case "rank_trees":
+          action.metric = ["planting_year", "height", "trunk", "crown"].includes(raw.metric) ? raw.metric : fail("Unbekanntes Baummerkmal.");
+          action.scope = raw.scope === undefined ? "viewport" : SCOPES.includes(raw.scope) ? raw.scope : fail("Ungültiger Bereich.");
+          action.limit = int(raw.limit, 1, 10, 5);
+          if (raw.district !== undefined) {
+            action.district = resolveDistrict(str(raw.district, 60));
+            if (!action.district) fail("Diesen Kölner Stadtteil kenne ich nicht.");
+          }
+          break;
+        case "rank_districts":
+          action.metric = raw.metric === "tree_count" ? "tree_count" : fail("Unbekannte Stadtteil-Auswertung.");
+          action.limit = int(raw.limit, 1, 10, 5);
           break;
         case "find_nearby":
           action.theme = themeParam(raw.theme);
           action.radius_m = int(raw.radius_m, MIN_RADIUS, MAX_RADIUS, 1000);
-          action.origin = raw.origin === undefined ? "user" : ["user", "selected"].includes(raw.origin) ? raw.origin : fail("Ungültiger Ausgangspunkt.");
+          action.origin = raw.origin === undefined ? "user" : ["user", "selected", "object"].includes(raw.origin) ? raw.origin : fail("Ungültiger Ausgangspunkt.");
+          if (action.origin === "object") {
+            action.object_id = str(raw.object_id, 80);
+            if (!findFeature(action.object_id)) fail("Diesen Ausgangsort kenne ich nicht.");
+          }
           action.limit = int(raw.limit, 1, 10, 5);
           Object.assign(action, treeParams(raw, action.theme));
           break;
@@ -308,8 +340,8 @@ window.GreenAITools = (() => {
 
   /* Counts matches and keeps the `keep` items closest to `center`.
      area: { bounds } (viewport), { center, radiusM } (nearby) or {} (everything loaded). */
-  function gather({ themeId, area = {}, tree = null, center, keep = 0, groupBy = null }) {
-    const out = { total: 0, cadastre: 0, osm: 0, nameOnly: 0, byTheme: new Map(), groups: new Map(), items: [] };
+  function gather({ themeId, area = {}, tree = null, center, keep = 0, groupBy = null, district = null }) {
+    const out = { total: 0, cadastre: 0, osm: 0, nameOnly: 0, unassigned: 0, byTheme: new Map(), groups: new Map(), items: [] };
     const middle = center || (area.bounds ? boxCenter(area.bounds) : area.center) || COLOGNE_CENTER;
     const inArea = (lon, lat) => {
       if (area.bounds) return inBox(area.bounds, lon, lat);
@@ -330,11 +362,15 @@ window.GreenAITools = (() => {
         }
       }
     };
-    for (const feature of data().collection.features) {
-      const theme = feature.properties.theme;
-      if ((themeId && theme !== themeId) || (tree && theme !== "trees") || (tree && !tree.feature(feature))) continue;
-      const [lon, lat] = feature.geometry.coordinates;
-      if (!inArea(lon, lat)) continue;
+      for (const feature of data().collection.features) {
+        const theme = feature.properties.theme;
+        if ((themeId && theme !== themeId) || (tree && theme !== "trees") || (tree && !tree.feature(feature))) continue;
+        const [lon, lat] = feature.geometry.coordinates;
+        if (!inArea(lon, lat)) continue;
+        if (district && norm(feature.properties.district) !== norm(district)) {
+          if (!feature.properties.district) out.unassigned++;
+          continue;
+        }
       const info = theme === "trees" && groupBy ? featureInfo(feature.properties) : null;
       const label = tree?.edible && groupBy ? info?.edible?.entry.label : feature.properties.species || "ohne Artangabe";
       take(theme, lon, lat, "osm", label, info?.edible, feature);
@@ -342,6 +378,7 @@ window.GreenAITools = (() => {
     if ((!themeId || themeId === "trees") && trees().ready) {
       const visit = (row) => {
         if (tree && !tree.row(row)) return true;
+        if (district && norm(row[6]) !== norm(district)) return true;
         if (area.center && !inArea(row[1], row[2])) return true;
         const info = tree?.edible || groupBy ? rowInfo(row) : null;
         const label = tree?.edible && groupBy ? info.edible.entry.label : row[3] || row[4] || "ohne Artangabe";
@@ -437,8 +474,8 @@ window.GreenAITools = (() => {
 
   /* ---------- action execution ---------- */
   function nearbyOrigin(action) {
-    if (action.origin === "selected") {
-      const id = atlas().getSelectedId();
+    if (action.origin === "selected" || action.origin === "object") {
+      const id = action.origin === "object" ? action.object_id : atlas().getSelectedId();
       const feature = id && findFeature(id);
       if (!feature) return { message: "Wähle zuerst einen Ort auf der Karte aus, dann kann ich die Umgebung dieses Punkts durchsuchen." };
       const [lon, lat] = feature.geometry?.coordinates || [feature.coordinates.lng, feature.coordinates.lat];
@@ -535,10 +572,10 @@ window.GreenAITools = (() => {
     async count_features(action) {
       if (action.theme === REPORTS) return reportQuery(action, false);
       const spec = treeSpec(action);
-      const result = gather({ themeId: action.theme, area: areaFor(action.scope), tree: spec });
+      const result = gather({ themeId: action.theme, area: areaFor(action.scope), tree: spec, district: action.district });
       const subject = spec ? spec.label : action.theme === "trees" ? "Bäume"
         : action.theme ? `Orte der Kategorie „${data().theme(action.theme).name}“` : "Orte";
-      const parts = [`${upFirst(subject)} ${scopeText(action.scope)}: ${number(result.total)}.`];
+      const parts = [`${upFirst(subject)} ${action.district ? `in ${action.district} ` : ""}${scopeText(action.scope)}: ${number(result.total)}.`];
       if (action.theme === "trees" || (!action.theme && result.cadastre)) {
         parts.push(`Davon Baumkataster ${number(result.cadastre)}, OpenStreetMap ${number(result.osm)}.`);
       }
@@ -548,13 +585,14 @@ window.GreenAITools = (() => {
       }
       if (spec?.edible && result.nameOnly) parts.push(`${number(result.nameOnly)} davon nur über den Katasternamen zugeordnet (Art nicht näher bestimmt).`);
       parts.push(visibilityNote(action.theme), sourceNote(action.theme), spec?.edible ? EDIBLE_NOTE : "");
+      if (result.unassigned) parts.push(`${number(result.unassigned)} OSM-Orte ohne eindeutige Stadtteilzuordnung wurden nicht mitgezählt.`);
       return { kind: "query", message: parts.filter(Boolean).join("\n") };
     },
     async list_features(action) {
       if (action.theme === REPORTS) return reportQuery(action, true);
       const spec = treeSpec(action);
       const grouped = action.group_by === "species";
-      const result = gather({ themeId: action.theme, area: areaFor(action.scope), tree: spec, keep: grouped ? 0 : action.limit, groupBy: grouped ? "species" : null });
+      const result = gather({ themeId: action.theme, area: areaFor(action.scope), tree: spec, keep: grouped ? 0 : action.limit, groupBy: grouped ? "species" : null, district: action.district });
       const subject = spec ? spec.label : data().theme(action.theme).name;
       let body;
       if (!result.total) body = [`Für „${subject}“ gibt es ${scopeText(action.scope)} keine Treffer.`];
@@ -564,7 +602,38 @@ window.GreenAITools = (() => {
         body = [`${plural(result.total, "Treffer", "Treffer")} für „${subject}“ ${scopeText(action.scope)}${result.total > items.length ? `, die ${items.length} nächsten zur Kartenmitte` : ""}:`, ...items.map(line)];
       }
       if (grouped && spec?.edible && result.nameOnly) body.push(`${number(result.nameOnly)} davon nur über den Katasternamen zugeordnet (Art nicht näher bestimmt).`);
+      if (action.district) body.unshift(`Stadtteil: ${action.district}.`);
+      if (result.unassigned) body.push(`${number(result.unassigned)} OSM-Orte ohne eindeutige Stadtteilzuordnung wurden nicht berücksichtigt.`);
       return { kind: "query", message: [...body, joinParts(visibilityNote(action.theme), sourceNote(action.theme), spec?.edible ? EDIBLE_NOTE : "")].join("\n") };
+    },
+    rank_trees(action) {
+      const indices = { planting_year: 7, height: 9, trunk: 8, crown: 10 };
+      const labels = { planting_year: "Älteste Bäume nach erfasstem Pflanzjahr", height: "Größte Bäume nach erfasster Höhe",
+        trunk: "Bäume mit größtem erfassten Stammdurchmesser", crown: "Bäume mit größtem erfassten Kronendurchmesser" };
+      const bounds = action.scope === "viewport" ? viewportBounds() : null;
+      const found = [];
+      let eligible = 0, missing = 0;
+      trees().forEachRow((row) => {
+        if (bounds && !inBox(bounds, row[1], row[2])) return;
+        if (action.district && norm(row[6]) !== norm(action.district)) return;
+        const value = Number(row[indices[action.metric]]);
+        if (!Number.isFinite(value) || value <= 0 || (action.metric === "planting_year" && (value < 1700 || value > new Date().getFullYear()))) { missing++; return; }
+        eligible++;
+        found.push({ row, value });
+      });
+      found.sort((a, b) => (action.metric === "planting_year" ? a.value - b.value : b.value - a.value) || a.row[0].localeCompare(b.row[0]));
+      const lines = found.slice(0, action.limit).map(({ row, value }) => `• ${row[3] || row[4] || "Baum"} · ${row[5] || row[6] || "Köln"} · Baum-Nr. ${row[0].split("@")[0]} · ${action.metric === "planting_year" ? `erfasstes Pflanzjahr ${value}` : `${value} ${action.metric === "height" ? "m" : "cm"}`}`);
+      return { kind: "query", message: [`${labels[action.metric]} ${action.district ? `in ${action.district} ` : ""}${scopeText(action.scope)}: ${number(eligible)} Datensätze mit Wert ausgewertet, ${number(missing)} ohne auswertbaren Wert.`,
+        ...lines, "Quelle: Baumkataster Stadt Köln; nur betreute Einzelbäume, Angaben können fehlen."].join("\n") };
+    },
+    rank_districts(action) {
+      const counts = new Map();
+      let missing = 0;
+      trees().forEachRow((row) => { if (row[6]) counts.set(row[6], (counts.get(row[6]) || 0) + 1); else missing++; });
+      const ranked = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "de"));
+      return { kind: "query", message: [`Stadtteile mit den meisten erfassten Bäumen: ${number(trees().count - missing)} Datensätze mit Stadtteil ausgewertet, ${number(missing)} ohne Stadtteil.`,
+        ...ranked.slice(0, action.limit).map(([name, count]) => `• ${name}: ${number(count)}`),
+        "Quelle: Baumkataster Stadt Köln; betreute Einzelbäume, kein vollständiger Baumbestand."].join("\n") };
     },
     find_nearby(action) {
       const origin = nearbyOrigin(action);
@@ -637,6 +706,40 @@ window.GreenAITools = (() => {
       return { ok: false, kind: "error", message: "Die Aktion konnte nicht ausgeführt werden." };
     }
   }
+  async function runActions(rawActions) {
+    if (!Array.isArray(rawActions) || rawActions.length < 1 || rawActions.length > 3) {
+      return { ok: false, kind: "error", message: "Erlaubt sind eine bis drei Aktionen pro Antwort.", actions: [] };
+    }
+    const checked = rawActions.map(validate);
+    const rejected = checked.find((item) => !item.ok);
+    if (rejected) return { ok: false, kind: "error", message: rejected.message, actions: [] };
+    const done = [], messages = [];
+    for (const { action } of checked) {
+      const result = await run(action);
+      if (!result.ok) return { ok: false, kind: "error", actions: done,
+        message: `${messages.join("\n")}\nNach ${done.length} Aktion(en) gestoppt: ${result.message}`.trim() };
+      done.push(action);
+      messages.push(result.message);
+    }
+    return { ok: true, kind: "sequence", actions: done, action: done.at(-1), message: messages.join("\n") };
+  }
+  function parseActionBlocks(reply) {
+    const blocks = [...String(reply).matchAll(/<action>\s*([\s\S]*?)\s*<\/action>/gi)];
+    if (!blocks.length) return /<action>/i.test(reply) ? null : [];
+    try { return blocks.map((block) => JSON.parse(block[1])); }
+    catch { return null; }
+  }
+  function remember(state, result) {
+    if (!state || (!result?.ok && !result?.actions?.length)) return;
+    const action = result.actions?.at(-1) || result.action;
+    if (action) {
+      state.lastAction = action;
+      state.lastResultKind = result.kind;
+      state.lastResultSummary = String(result.message || "").slice(-350);
+      state.lastOriginId = action.object_id || (action.origin === "selected" ? atlas()?.getSelectedId?.() : state.lastOriginId) || null;
+    }
+    state.selectedId = atlas()?.getSelectedId?.() || null;
+  }
 
   /* ---------- local intent recognition (no network) ---------- */
   const THEME_PATTERNS = [
@@ -665,14 +768,33 @@ window.GreenAITools = (() => {
   }
 
   // Returns { action } | { answer: "world" | "climate", theme } | null (null = needs the language model).
-  function localIntent(text) {
+  function localIntent(text, state = {}) {
     const q = norm(text).replace(/[?!.,;:'’"„“]+/g, " ").replace(/\s+/g, " ").trim();
     if (!q) return null;
-    const theme = detectTheme(q);
+    const subject = q.split(/\b(?:in der nahe|im umkreis|im radius|entfernt von)\b/)[0];
+    const theme = detectTheme(subject) || detectTheme(q);
     const view = /sehe|gerade|hier|ausschnitt|karte|sichtbar|diesem bereich/.test(q);
     const scope = view ? "viewport" : "all_loaded";
     const count = /wie viele|wieviele|anzahl/.test(q);
     const list = /welche|liste|auflisten|nenne/.test(q);
+    const district = districtNames().find((name) => new RegExp(`\\b${norm(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(q));
+    const previous = state.lastAction;
+    const nextTheme = /brunnen|wasser/.test(q) ? "water" : /meldung/.test(q) ? REPORTS : detectTheme(q);
+    if (/^(und |auch |davon |davon nur )/.test(q) && previous) {
+      const followSpecies = detectEdible(q);
+      if (followSpecies && previous.theme === "trees") return { action: { type: "filter_features", theme: "trees", ...followSpecies } };
+      if (/auch|dazu/.test(q) && nextTheme) return { action: nextTheme === REPORTS
+        ? { type: "show_reports", visible: true } : { type: "show_theme", theme: nextTheme } };
+      if (count && previous.theme) return { action: { type: "count_features", theme: previous.theme, scope: previous.scope || "viewport", ...(previous.district && { district: previous.district }) } };
+    }
+    if (!count && !list && /(?:zeige|blend).*(?:baum|baume).*(?:und|sowie).*(?:meldung|sag s uns)|(?:zeige|blend).*(?:meldung).*(?:und|sowie).*(?:baum|baume)/.test(q)) {
+      return { actions: [{ type: "show_theme", theme: "trees" }, { type: "show_reports", visible: true }] };
+    }
+    if (/welcher stadtteil.*meisten baum|welche stadtteile.*meisten baum/.test(q)) return { action: { type: "rank_districts", metric: "tree_count", limit: 5 } };
+    if (/altest.*baum|grosst.*baum|hochste.*baum|dickst.*baum|grosst.*krone/.test(q)) {
+      const metric = /alt/.test(q) ? "planting_year" : /krone/.test(q) ? "crown" : /dick|stamm/.test(q) ? "trunk" : "height";
+      return { action: { type: "rank_trees", metric, scope: view ? "viewport" : "all_loaded", limit: 5, ...(district && { district }) } };
+    }
     if (/\b(welt|weltweit|deutschland|europa|nrw|bundesweit)\b/.test(q)) return { answer: "world", theme: theme || (detectEdible(q) ? "trees" : null) };
     if (/meldung|sag s uns|sags uns/.test(q)) {
       const status = /offen|neu\b|unbearbeitet/.test(q) ? "open" : /bearbeitung/.test(q) ? "in_progress" : /abgeschlossen|erledigt|geschlossen/.test(q) ? "closed" : null;
@@ -693,18 +815,31 @@ window.GreenAITools = (() => {
     const tree = target === "trees" && edible ? edible : {};
     if (/nahe|umkreis|entfernt|radius|nachst/.test(q) || (detectRadius(q) && !count && !list)) {
       const near = /nachst/.test(q);
+      let origin = /diese[mnrs]? (ort|punkt|park|baum|brunnen|objekt|stelle)|von hier/.test(q) ? "selected" : "user";
+      let objectId;
+      const named = /(?:vom|von|bei|um)\s+(.+?)(?:\s+entfernt)?$/.exec(q);
+      const namedPlace = named?.[1].replace(/\s+entfernt$/, "").trim();
+      if (namedPlace && !/^(\d|hier|diesem|dieser|meinem|mir|uns|dem punkt|diesem punkt|diesem ort)(\b|$)/.test(namedPlace)) {
+        const query = namedPlace.replace(/melatenfriedhof/, "melaten").replace(/^dem\s+/, "");
+        const matches = data().collection.features.filter((f) => norm(f.properties.name).includes(query) ||
+          (query === "melaten" && norm(f.properties.name).includes("melaten")));
+        if (matches.length > 1) return { answer: "ambiguous", message: `Mehrere Orte passen zu „${namedPlace}“: ${matches.slice(0, 5).map((f) => f.properties.name).join(", ")}. Bitte nenne den Ort genauer oder wähle ihn auf der Karte.` };
+        if (matches.length === 0) return { answer: "missing", message: `„${namedPlace}“ wurde im geladenen Datensatz nicht eindeutig gefunden.` };
+        origin = "object";
+        objectId = matches[0].id;
+      }
       return {
         action: {
           type: "find_nearby", theme: target, radius_m: detectRadius(q) ?? (near ? MAX_RADIUS : 1000),
-          origin: /diese[mnrs]? (ort|punkt|park|baum|brunnen|objekt|stelle)|von hier/.test(q) ? "selected" : "user",
+          origin, ...(objectId && { object_id: objectId }),
           limit: near ? 3 : 5, ...tree,
         },
       };
     }
-    if (count) return { action: { type: "count_features", theme: target, scope, ...tree } };
-    if (list) {
+    if (count) return { action: { type: "count_features", theme: target, scope: district ? "all_loaded" : scope, ...tree, ...(district && { district }) } };
+    if (list || district) {
       const groupBy = target === "trees" && /baumart|\barten\b|sorten|welche arten/.test(q) ? { group_by: "species" } : {};
-      return { action: { type: "list_features", theme: target, scope, limit: 10, ...groupBy, ...tree } };
+      return { action: { type: "list_features", theme: target, scope: district ? "all_loaded" : scope, limit: 10, ...groupBy, ...tree, ...(district && { district }) } };
     }
     if (/ausblenden|blende.* aus|verstecke|verberge/.test(q)) return { action: { type: "hide_theme", theme: target } };
     if (target === "trees" && edible) return { action: { type: "filter_features", theme: "trees", ...edible } };
@@ -721,17 +856,20 @@ window.GreenAITools = (() => {
   }
   const CLIMATE_ANSWER = "Bäume und Grünflächen können Schatten und Verdunstungskühle bieten. Für diesen Ausschnitt liegen keine Mess- oder Simulationsdaten vor.";
 
-  async function handleLocal(text) {
-    const intent = localIntent(text);
+  async function handleLocal(text, state) {
+    const intent = localIntent(text, state);
     if (!intent) return null;
     log("local intent", intent.action?.type || intent.answer);
     if (intent.answer === "climate") return { ok: true, kind: "query", message: CLIMATE_ANSWER };
     if (intent.answer === "world") return { ok: true, kind: "query", message: worldAnswer(intent.theme) };
-    return { ...(await run(intent.action)), action: intent.action };
+    if (intent.answer) return { ok: true, kind: "query", message: intent.message };
+    const result = intent.actions ? await runActions(intent.actions) : { ...(await run(intent.action)), action: intent.action };
+    remember(state, result);
+    return result;
   }
 
   /* ---------- language model support ---------- */
-  function buildContext() {
+  function buildContext(state) {
     const map0 = map();
     if (!map0) return {};
     const source = (properties) => (properties.sourceKind === "cadastre" ? "Baumkataster" : data().dataMode === "osm" ? "OSM" : "Demo");
@@ -749,20 +887,24 @@ window.GreenAITools = (() => {
       treeFilter: map0.treeFilter?.label || null,
       userLocationAvailable: !!atlas().getUserLocation(),
       selectedId: atlas().getSelectedId() || null,
+      lastAction: state?.lastAction || null,
+      lastResultKind: state?.lastResultKind || null,
+      lastResultSummary: state?.lastResultSummary || null,
+      lastOriginId: state?.lastOriginId || null,
       features,
     };
     while (JSON.stringify(context).length > 4000 && context.features.length) context.features.pop();
     return context;
   }
 
-  function buildSystemPrompt() {
+  function buildSystemPrompt(state) {
     const themes = data().themes.map((theme) => `${theme.id}=${theme.name}`).join(", ");
     const services = reports().services.map((service) => `${service.code}=${service.name}`).join(", ");
     return [
       "Du bist GrünAI, der GeoAI-Assistent des GrünAtlas Köln (Stadt Köln, Amt für Landschaftspflege und Grünflächen).",
       "Du darfst ausschließlich die unten definierten GrünAtlas-Actions anfordern. Du führst selbst keine GIS-Berechnungen durch und erfindest keine Objekte, Entfernungen, Mengen oder Eigenschaften. Du nutzt nur Informationen aus dem Kontext oder aus Action-Ergebnissen. Fehlen Daten, sagst du das klar.",
       "Antworte kurz auf Deutsch, höchstens ein Satz, und nenne keine Zahlen: Zahlen, Listen und Entfernungen liefert GrünAtlas selbst nach der Action.",
-      "Eine Action steht am Ende deiner Antwort als <action>{JSON}</action>, höchstens eine pro Antwort. Erfinde keine Action, die nicht in dieser Liste steht. Der Nutzer sieht den Action-Block nicht.",
+      "Setze eine bis drei Actions am Ende als getrennte <action>{JSON}</action>-Blöcke. Nutze den Gesprächszustand für Folgefragen. Erfinde keine Action. Der Nutzer sieht die Blöcke nicht.",
       `Themen (theme): ${themes}. Sonderwert "reports" = Sag's uns Köln Grünmeldungen (nur bei count_features und list_features).`,
       "Jede Action ist ein JSON-Objekt und MUSS das Feld \"type\" enthalten. Actions (ID = eine Theme-ID):",
       '{"type":"show_theme","theme":ID}  {"type":"hide_theme","theme":ID}  {"type":"zoom_to_theme","theme":ID}',
@@ -775,17 +917,20 @@ window.GreenAITools = (() => {
       '{"type":"show_reports","visible":true}',
       `{"type":"filter_reports","status":"all|open|in_progress|closed","category":"all|${reports().services.map((s) => s.code).join("|")}","text":"Stichwort"}  (${services})`,
       '{"type":"get_map_context"}',
+      '{"type":"rank_trees","metric":"planting_year|height|trunk|crown","scope":"viewport|all_loaded","limit":5,"district":"Stadtteil"}',
+      '{"type":"rank_districts","metric":"tree_count","limit":5}',
+      'count_features und list_features akzeptieren optional "district":"Stadtteil"; find_nearby akzeptiert "origin":"object" mit "object_id" aus dem Kontext.',
       'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
       "Datenquellen: begrenzter OpenStreetMap-Auszug, Baumkataster der Stadt Köln (betreute Einzelbäume, nicht alle Bäume), Sag's uns Köln (Meldungen der letzten 30 Tage), sonst Demo-Daten. Keine Quelle ist ein vollständiger amtlicher Bestand.",
       'Ob eine Baumart essbare Früchte trägt, entscheidest du nicht: GrünAtlas prüft das über eine feste Artenliste; du setzt nur "edible":true bzw. "species". Sage nie, Früchte seien bedenkenlos essbar.',
       "„In meiner Nähe“ braucht den Standort des Nutzers (userLocationAvailable im Kontext). Routing gibt es nicht.",
-      `Kontext (JSON): ${JSON.stringify(buildContext())}`,
+      `Kontext (JSON): ${JSON.stringify(buildContext(state))}`,
     ].join("\n");
   }
 
   return {
     ALLOWED_ACTIONS, PLANNED_ACTIONS, EDIBLE_TREE_SPECIES, MIN_RADIUS, MAX_RADIUS,
-    validate, run, localIntent, handleLocal, buildSystemPrompt, buildContext,
+    validate, run, runActions, parseActionBlocks, remember, localIntent, handleLocal, buildSystemPrompt, buildContext,
     edibleInfo, haversine,
   };
 })();

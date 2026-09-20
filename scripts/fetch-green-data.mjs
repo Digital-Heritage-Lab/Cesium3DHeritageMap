@@ -2,6 +2,7 @@ import { readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { convertOverpass } from './import-overpass.mjs';
+import { loadDistricts } from './cologne-districts.mjs';
 
 const endpoint = 'https://overpass-api.de/api/interpreter';
 const queryFile = new URL('./cologne-green.overpassql', import.meta.url);
@@ -26,7 +27,7 @@ export async function fetchGreenData(request = fetch) {
     if (size > 15_000_000) throw new Error('Overpass response exceeds the 15 MB import limit.');
     const body = await response.text();
     if (body.length > 15_000_000) throw new Error('Overpass response exceeds the 15 MB import limit.');
-    return convertOverpass(JSON.parse(body));
+    return convertOverpass(JSON.parse(body), await loadDistricts());
   } finally {
     clearTimeout(timeout);
   }
