@@ -2,14 +2,27 @@
 /* Labs workspace. Only Coolroutes is operational; the other labs are explicit previews. */
 window.GreenLabs = (() => {
   const labs = [
-    { id: "coolroutes", title: "Coolrouten Köln", category: "Klima & Gesundheit", icon: "route", image: "Images/labs/coolroutes.png",
-      description: "Vergleicht grüne, schnelle und barriereärmere Fußwege auf echter Routingbasis." },
+    { id: "coolroutes", title: "CoolRoutes Cologne", category: "Klima & Gesundheit", icon: "route", image: "Images/labs/coolroutes.png", badge: "Beitrag",
+      url: "https://courageous-pudding-391ff7.netlify.app/", subtitle: "Kühle Wege durch Köln", heading: "Komfortablere Wege bei Hitze planen",
+      description: "Plant kühlere Wege mit Temperatur-, Schatten-, Wind- und Wasserdaten für Köln.",
+      summary: "CoolRoutes Cologne bewertet Wege anhand modellierter Hitze, Schatten, Grün, Wasser und Wind. Persönliche Präferenzen, verschiedene Profile und mehrere Kartenebenen machen klimatisch angenehmere Routen direkt vergleichbar.",
+      features: [["route", "Kühlere Routen"], ["sprout", "Schatten und Stadtgrün"], ["water", "Wasser und Wetter"]] },
     { id: "watering", title: "Smart Watering Pilot", category: "Wasser", icon: "water", image: "Images/labs/smart-watering.png",
       description: "Konzeptansicht für Bewässerungsbedarf aus Wetter-, Standort- und Vegetationsdaten." },
     { id: "fountains", title: "Brunnen 3D", category: "Wasser", icon: "cube", image: "Images/labs/brunnen-im-dau.png",
       description: "Erkundet den historischen Brunnen Im Dau in der Kölner Altstadt-Süd als 3D-Modell." },
     { id: "monitoring", title: "Grünflächen-Monitoring", category: "Daten & Monitoring", icon: "chart", image: "Images/labs/gruenflaechen-monitoring.png",
       description: "Vorschau auf nachvollziehbare Zeitvergleiche von Grünflächen." },
+    { id: "urban-trees", title: "Cologne Urban Tree Atlas", category: "Daten & Monitoring", icon: "tree", image: "Images/labs/cologne-urban-tree-atlas.png", badge: "Beitrag",
+      url: "https://glistening-wisp-367b6e.netlify.app/", subtitle: "Interaktive Baumalterkarte · Bewässerungsmonitor", heading: "Kölns Stadtbäume datenbasiert erkunden",
+      description: "Interaktive Baumalterkarte mit Filtern, Datenqualität und Bewässerungsmonitor für Köln.",
+      summary: "Der Cologne Urban Tree Atlas verbindet den Kölner Baumbestand mit Altersklassen, Artenfiltern, Datenqualitätsangaben sowie Wetter- und Trockenheitsindikatoren.",
+      features: [["tree", "Baumalter und Arten"], ["filter", "Interaktive Filter"], ["water", "Bewässerungsmonitor"]] },
+    { id: "lidar", title: "Urban Green LiDAR Map", category: "Daten & Monitoring", icon: "cube", image: "Images/labs/urban-green-lidar-map.png", badge: "Entwurf",
+      url: "https://thunderous-cactus-858ad9.netlify.app/", subtitle: "3D-Punktwolken · Vegetationsstrukturen", heading: "Stadtgrün aus der Höhe sichtbar machen",
+      description: "Entwurf einer interaktiven 3D-LiDAR-Karte für Vegetation, Baumkronen und Gebäude.",
+      summary: "Die Urban Green LiDAR Map macht hochauflösende Höhendaten räumlich erfahrbar. LiDAR-Klassen lassen sich nach Boden, niedriger, mittlerer und hoher Vegetation sowie Gebäuden untersuchen.",
+      features: [["cube", "3D-LiDAR-Punktwolken"], ["tree", "Vegetation und Baumkronen"], ["layers", "Filterbare Höhenklassen"]] },
   ];
   let active = "coolroutes";
   let category = "Alle Labs";
@@ -19,12 +32,13 @@ window.GreenLabs = (() => {
   const icon = (name) => GreenAtlas.icon(name);
   const minutes = (seconds) => `${Math.max(1, Math.round(seconds / 60))} Min`;
   const distance = (meters) => meters < 1000 ? `${meters} m` : `${(meters / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} km`;
+  const cardAction = (lab) => lab.url ? "Beitrag ansehen" : lab.id === "fountains" ? "Öffnen" : "Vorschau";
 
   function card(lab) {
     return `<article class="lab-card${active === lab.id ? " active" : ""}">
-      <div class="lab-card-visual lab-${lab.id}"><img src="${esc(lab.image)}" alt="" loading="lazy"><span>Experiment</span><b>${icon(lab.icon)}</b></div>
+      <div class="lab-card-visual lab-${lab.id}"><img src="${esc(lab.image)}" alt="" loading="lazy"><span>${esc(lab.badge || "Experiment")}</span><b>${icon(lab.icon)}</b></div>
       <div class="lab-card-body"><span class="lab-tag">${esc(lab.category)}</span><h3>${esc(lab.title)}</h3>
-      <p>${esc(lab.description)}</p><button data-open-lab="${lab.id}" class="lab-open">${["coolroutes", "fountains"].includes(lab.id) ? "Öffnen" : "Vorschau"}${icon("arrow")}</button></div>
+      <p>${esc(lab.description)}</p><button data-open-lab="${lab.id}" class="lab-open">${cardAction(lab)}${icon("arrow")}</button></div>
     </article>`;
   }
   function renderCatalog() {
@@ -77,13 +91,17 @@ window.GreenLabs = (() => {
     return `<div class="lab-detail-head"><span>${icon("cube")}</span><div><span class="beta">3D</span><h2>Brunnen Im Dau</h2><p>Im Dau 9 · Altstadt-Süd · nahe Severinstraße</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div>
       <div class="lab-detail-body fountain-detail"><p class="fountain-intro">Der stillgelegte Travertinbrunnen wurde 1914 von Simon Kirschbaum geschaffen. Die häufig als „Alter Fritz“ bezeichnete Anlage erinnert nach der überlieferten Beschreibung tatsächlich an Magdalena Klotz, die das Werk ihres Großvaters Christoph Winter und damit das Kölner Hänneschentheater fortführte.</p><div class="sketchfab-embed-wrapper"><iframe title="3D-Modell des Brunnens Im Dau in Köln" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" loading="lazy" src="https://sketchfab.com/models/e452ea5a9f2545079de0244b6e11f978/embed?ui_theme=dark&dnt=1"></iframe></div><p class="fountain-help">3D über die Wiedergabetaste starten. Danach mit Ziehen drehen, mit dem Mausrad oder zwei Fingern zoomen. Vollbild ist direkt im Viewer verfügbar.</p><p class="fountain-attribution"><a href="https://sketchfab.com/3d-models/2ff13e42b0f74f7281ebaab42fcdb9d1-e452ea5a9f2545079de0244b6e11f978" target="_blank" rel="nofollow noopener noreferrer">3D-Modell</a> von <a href="https://sketchfab.com/ozcanertan" target="_blank" rel="nofollow noopener noreferrer">Digital Heritage Lab</a> auf <a href="https://sketchfab.com" target="_blank" rel="nofollow noopener noreferrer">Sketchfab</a>.</p><figure class="fountain-reference"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/K%C3%B6ln-Brunnen-Im-Dau-9.JPG?width=900" alt="Historisches Foto des Brunnens Im Dau in Köln" loading="lazy" referrerpolicy="no-referrer"><figcaption>Referenzfoto: <a href="https://commons.wikimedia.org/wiki/File:K%C3%B6ln-Brunnen-Im-Dau-9.JPG" target="_blank" rel="noopener noreferrer">Willy Horsch (HOWI), CC BY 3.0</a></figcaption></figure><button class="secondary-button" data-preview-fountains>${icon("map")}Brunnenstandorte auf der Karte zeigen</button></div>`;
   }
+  function externalAppPanel(lab) {
+    return `<div class="lab-detail-head"><span>${icon(lab.icon)}</span><div><span class="beta">${esc(lab.badge || "Beitrag").toUpperCase()}</span><h2>${esc(lab.title)}</h2><p>${esc(lab.subtitle)}</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div>
+      <div class="lab-detail-body external-lab-detail"><img src="${esc(lab.image)}" alt="Projektansicht von ${esc(lab.title)}"><h3>${esc(lab.heading)}</h3><p>${esc(lab.summary)} Der eigenständige Projektbeitrag öffnet sich in einer neuen Browser-Registerkarte.</p><div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div><a class="primary-button external-lab-launch" href="${esc(lab.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Webapp öffnen</a><p class="lab-disclaimer">Externer Labs-Beitrag. Datenstand, Methodik und Verfügbarkeit werden in der verlinkten Anwendung ausgewiesen.</p></div>`;
+  }
   function renderDetail() {
     if (matchMedia("(max-width:760px)").matches && !detailOpen) {
       $("labsDetail").replaceChildren();
       return;
     }
     const lab = labs.find((item) => item.id === active) || labs[0];
-    $("labsDetail").innerHTML = lab.id === "coolroutes" ? coolroutePanel() : lab.id === "fountains" ? fountainPanel() : previewPanel(lab);
+    $("labsDetail").innerHTML = lab.url ? externalAppPanel(lab) : lab.id === "fountains" ? fountainPanel() : previewPanel(lab);
   }
   function render() { renderCatalog(); renderDetail(); }
   function open(id) {

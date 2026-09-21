@@ -76,8 +76,31 @@ test('Brunnen 3D embeds the attributed Sketchfab model', async () => {
   assert.ok(labs.includes('Digital Heritage Lab'));
   assert.ok(labs.includes('K%C3%B6ln-Brunnen-Im-Dau-9.JPG'));
   assert.ok(labs.includes('Willy Horsch (HOWI), CC BY 3.0'));
-  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png']) {
+  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png', 'cologne-urban-tree-atlas.png', 'urban-green-lidar-map.png']) {
     assert.ok(labs.includes(`Images/labs/${image}`));
   }
   assert.ok(labs.includes('allowfullscreen'));
+});
+
+test('Labs includes the external Cologne Urban Tree Atlas contribution', async () => {
+  const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
+  assert.ok(labs.includes('Cologne Urban Tree Atlas'));
+  assert.ok(labs.includes('https://glistening-wisp-367b6e.netlify.app/'));
+  assert.ok(labs.includes('rel="noopener noreferrer"'));
+  assert.ok(labs.includes('Bewässerungsmonitor'));
+});
+
+test('Labs prioritizes the external CoolRoutes Cologne contribution', async () => {
+  const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
+  assert.ok(labs.includes('CoolRoutes Cologne'));
+  assert.ok(labs.includes('https://courageous-pudding-391ff7.netlify.app/'));
+  assert.ok(labs.includes('Temperatur-, Schatten-, Wind- und Wasserdaten'));
+});
+
+test('Labs includes the Urban Green LiDAR Map draft contribution', async () => {
+  const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
+  assert.ok(labs.includes('Urban Green LiDAR Map'));
+  assert.ok(labs.includes('https://thunderous-cactus-858ad9.netlify.app/'));
+  assert.ok(labs.includes('3D-LiDAR-Punktwolken'));
+  assert.ok(labs.includes('badge: "Entwurf"'));
 });
