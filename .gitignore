@@ -8,6 +8,7 @@ build/
 *.tmp
 temp/
 coverage/
+output/playwright/
 .env
 
 # Local Netlify folder
