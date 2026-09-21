@@ -8,6 +8,8 @@ window.GreenMap = class GreenMap {
     this.visibleTreeFeatures = [];
     this.reportData = [];
     this.reportVisible = false;
+    this.routeSource = null;
+    this.routeEntities = new Map();
     this.reportFilters = { category: 'all', status: 'all', text: '' };
     this.treeFilter = null;
     this.filters = {};
@@ -318,6 +320,59 @@ window.GreenMap = class GreenMap {
       orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
       duration: 1,
     });
+  }
+  async showRoutes(routes, activeId) {
+    this.clearRoutes();
+    const source = new Cesium.CustomDataSource("coolroutes");
+    const colors = { cool: "#00834f", fast: "#e3521a", accessible: "#3467b2" };
+    for (const route of routes) {
+      const color = Cesium.Color.fromCssColorString(colors[route.type] || "#00834f");
+      const entity = source.entities.add({
+        id: `route-${route.id}`,
+        name: route.label,
+        polyline: {
+          positions: route.geometry.coordinates.map((point) => Cesium.Cartesian3.fromDegrees(point[0], point[1], 12)),
+          width: route.id === activeId ? 7 : 4,
+          material: color.withAlpha(route.id === activeId ? 1 : 0.58),
+          depthFailMaterial: color.withAlpha(0.82),
+        },
+      });
+      this.routeEntities.set(route.id, { entity, color });
+    }
+    const first = routes[0]?.geometry.coordinates;
+    if (first?.length) {
+      source.entities.add({ id: "route-start", position: Cesium.Cartesian3.fromDegrees(...first[0], 18),
+        point: { pixelSize: 15, color: Cesium.Color.WHITE, outlineColor: Cesium.Color.fromCssColorString("#00834f"), outlineWidth: 5, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        label: { text: "Start", font: "600 13px sans-serif", showBackground: true, backgroundColor: Cesium.Color.WHITE.withAlpha(0.92), fillColor: Cesium.Color.fromCssColorString("#123c2d"), pixelOffset: new Cesium.Cartesian2(0, -24), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+      source.entities.add({ id: "route-end", position: Cesium.Cartesian3.fromDegrees(...first[first.length - 1], 18),
+        point: { pixelSize: 15, color: Cesium.Color.fromCssColorString("#00834f"), outlineColor: Cesium.Color.WHITE, outlineWidth: 4, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        label: { text: "Ziel", font: "600 13px sans-serif", showBackground: true, backgroundColor: Cesium.Color.WHITE.withAlpha(0.92), fillColor: Cesium.Color.fromCssColorString("#123c2d"), pixelOffset: new Cesium.Cartesian2(0, -24), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    }
+    await this.viewer.dataSources.add(source);
+    this.routeSource = source;
+    this.focusRoutes(routes);
+  }
+  selectRoute(id) {
+    for (const [routeId, item] of this.routeEntities) {
+      const active = routeId === id;
+      item.entity.polyline.width = active ? 7 : 4;
+      item.entity.polyline.material = item.color.withAlpha(active ? 1 : 0.45);
+    }
+    this.viewer.scene.requestRender();
+  }
+  focusRoutes(routes) {
+    const coordinates = routes.flatMap((route) => route.geometry.coordinates);
+    if (!coordinates.length) return;
+    const lons = coordinates.map((point) => point[0]), lats = coordinates.map((point) => point[1]);
+    this.viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(
+      Math.min(...lons) - 0.006, Math.min(...lats) - 0.004,
+      Math.max(...lons) + 0.006, Math.max(...lats) + 0.004), duration: 1 });
+  }
+  clearRoutes() {
+    if (this.routeSource) this.viewer.dataSources.remove(this.routeSource, true);
+    this.routeSource = null;
+    this.routeEntities.clear();
+    this.viewer.scene.requestRender();
   }
   zoomTheme(id) {
     this.setVisibility(id, true);

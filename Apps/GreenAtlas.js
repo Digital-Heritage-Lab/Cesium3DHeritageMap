@@ -1,3 +1,4 @@
+/* global GreenLabs, GreenRoutes */
 /* Product UI. The existing Cesium bootstrap mounts this controller once ready. */
 window.GreenAtlas = (() => {
   const paths = {
@@ -33,6 +34,15 @@ window.GreenAtlas = (() => {
     map: "m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16m6-14v16",
     send: "m3 3 19 9-19 9 4-9Zm4 9h15",
     report: "M12 3 3 7v5c0 5 9 10 9 10s9-5 9-10V7l-9-4Zm0 5v6m0 3v.2",
+    route: "M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm14-10a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM7 17h3a3 3 0 0 0 3-3v-4a3 3 0 0 1 3-3h1",
+    cube: "m12 2 9 5-9 5-9-5 9-5Zm-9 5v10l9 5 9-5V7M12 12v10",
+    chart: "M4 20V10m6 10V4m6 16v-7m4 7H2",
+    flask: "M9 2h6m-5 0v6l-6 10a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3L14 8V2M7 15h10",
+    clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 5v6l4 2",
+    help: "M12 18v.2M9 9a3 3 0 1 1 4 2.8c-.7.3-1 1-1 2.2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20",
+    user: "M20 21a8 8 0 0 0-16 0M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
+    list: "M8 6h13M8 12h13M8 18h13M3 6h.2M3 12h.2M3 18h.2",
+    more: "M5 12h.2M12 12h.2M19 12h.2",
   };
   const icon = (name) =>
     `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${
@@ -232,6 +242,13 @@ window.GreenAtlas = (() => {
       (map.reportFilters.category === service.code ? ' selected' : '') + '>' + escape(service.name) + '</option>').join('');
     return `<div class="layer-row report-layer"><div class="layer-top" style="color:#8a6840">${icon('report')}<span class="layer-title"><strong>Sag's uns Köln</strong><small>Grünmeldungen · ${GreenReports.snapshot ? 'Archivstand' : 'letzte 30 Tage'} · ${GreenReports.reports.length.toLocaleString('de-DE')} geladen</small></span><button class="switch" role="switch" aria-label="Sag's uns Köln, Grünmeldungen" aria-checked="${map.reportVisible}" data-report-layer></button></div>${map.reportVisible ? `<div class="report-layer-controls"><p class="demo-note">Bürgerinformationen zu Kölner Grün und Spiel- und Bolzplätzen. Quelle: <a href="https://sags-uns.stadt-koeln.de/requests" target="_blank" rel="noopener noreferrer">Sag's uns Köln</a>.</p><div class="filter-grid"><label>Kategorie<select data-report-filter="category"><option value="all"${map.reportFilters.category === 'all' ? ' selected' : ''}>Alle Grünmeldungen</option>${categories}</select></label><label>Status<select data-report-filter="status"><option value="all"${map.reportFilters.status === 'all' ? ' selected' : ''}>Alle</option><option value="open"${map.reportFilters.status === 'open' ? ' selected' : ''}>Offen</option><option value="in_progress"${map.reportFilters.status === 'in_progress' ? ' selected' : ''}>In Bearbeitung</option><option value="closed"${map.reportFilters.status === 'closed' ? ' selected' : ''}>Abgeschlossen</option></select></label></div><p class="report-layer-state" role="status">${reportLoading ? 'Aktuelle Grünmeldungen werden geladen …' : reportError ? 'Grünmeldungen konnten momentan nicht geladen werden.' : `${count.toLocaleString('de-DE')} Meldungen für diese Filter${GreenReports.fetchedAt ? ` · ${GreenReports.snapshot ? 'Archivstand' : 'Abruf'} ${escape(new Date(GreenReports.fetchedAt).toLocaleString('de-DE'))}` : ''}`}</p><button class="text-button" data-report-refresh${reportLoading ? ' disabled' : ''}>Aktualisieren ↻</button></div>` : ''}</div>`;
   }
+  function updateReportControls() {
+    document.querySelectorAll('[data-report-layer]').forEach((control) =>
+      control.setAttribute('aria-checked', String(map.reportVisible))
+    );
+    const meta = $('sidebarReportMeta');
+    if (meta) meta.textContent = `Grünmeldungen · ${GreenReports.snapshot ? 'Archivstand' : 'letzte 30 Tage'} · ${GreenReports.reports.length.toLocaleString('de-DE')} geladen`;
+  }
   function showView(view) {
     lastTrigger = document.activeElement;
     currentView = view;
@@ -365,7 +382,7 @@ window.GreenAtlas = (() => {
       id
     )}" aria-pressed="${favorites.has(id)}">${icon("heart")}${
       favorites.has(id) ? "Gemerkt" : "Merken"
-    }</button></div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
+    }</button><button class="secondary-button" data-route-endpoint="start" data-route-object="${escape(id)}">${icon("route")}Als Start</button><button class="secondary-button" data-route-endpoint="end" data-route-object="${escape(id)}">${icon("pin")}Als Ziel</button></div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
       id
     )}<br>${escape(
       p.source
@@ -465,6 +482,36 @@ window.GreenAtlas = (() => {
           }"></i>${t.name.split(" &")[0]}</span>`;
         })
         .join("") + (map.reportVisible ? '<span><i class="legend-dot" style="background:#8a6840"></i>Grünmeldungen</span>' : '') || "<span>Keine Themen eingeblendet</span>";
+    if ($("sidebarLegend")) $("sidebarLegend").innerHTML = $("mapLegend").innerHTML;
+    if ($("greenStat")) $("greenStat").textContent = GreenData.search("", "parks").length.toLocaleString("de-DE");
+    if ($("playStat")) $("playStat").textContent = GreenData.search("", "play").length.toLocaleString("de-DE");
+    if ($("waterStat")) $("waterStat").textContent = GreenData.search("", "water").length.toLocaleString("de-DE");
+    if ($("treeStat") && GreenTrees.ready) $("treeStat").textContent = GreenTrees.count.toLocaleString("de-DE");
+    updateReportControls();
+  }
+  function activateAppView(view) {
+    document.querySelectorAll("[data-app-view]").forEach((button) => {
+      const active = button.dataset.appView === view;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    if (view === "labs") {
+      closeAI();
+      GreenLabs.open();
+      return;
+    }
+    $("labsWorkspace").hidden = true;
+    document.body.classList.remove("labs-open");
+    if (view === "ai") {
+      openAI();
+      return;
+    }
+    closeAI();
+    if (view === "more" || view === "help") {
+      showView("about");
+      panel().hidden = false;
+    } else if (view === "map") panel().hidden = true;
   }
   async function refreshReports(force = false) {
     reportLoading = true;
@@ -623,6 +670,17 @@ window.GreenAtlas = (() => {
       if (!event.target.closest(".basemap-panel, #basemapButton"))
         $("basemapPanel").hidden = true;
       if (!button) return;
+      if (button.dataset.appView) activateAppView(button.dataset.appView);
+      if (button.dataset.sidebarTab) {
+        const layers = button.dataset.sidebarTab === "layers";
+        $("layerSidebar").hidden = !layers;
+        $("legendSidebar").hidden = layers;
+        document.querySelectorAll("[data-sidebar-tab]").forEach((tab) => {
+          const active = tab === button;
+          tab.classList.toggle("active", active);
+          tab.setAttribute("aria-selected", String(active));
+        });
+      }
       if (button.dataset.theme) {
         showView(button.dataset.theme);
         hideSearch();
@@ -630,6 +688,17 @@ window.GreenAtlas = (() => {
       if (button.dataset.view) showView(button.dataset.view);
       if (button.dataset.object) showObject(button.dataset.object);
       if (button.dataset.focus) map.focus(button.dataset.focus);
+      if (button.dataset.routeEndpoint && button.dataset.routeObject) {
+        const feature = GreenData.collection.features.find((item) => item.id === button.dataset.routeObject) || GreenTrees.get(button.dataset.routeObject);
+        if (feature) {
+          GreenRoutes.setEndpoint(button.dataset.routeEndpoint, {
+            id: feature.id,
+            label: feature.properties.name,
+            coordinates: feature.geometry.coordinates,
+          });
+          activateAppView("labs");
+        }
+      }
       if (button.dataset.layer) {
         map.setVisibility(
           button.dataset.layer,
@@ -642,7 +711,8 @@ window.GreenAtlas = (() => {
       }
       if (button.hasAttribute('data-report-layer')) {
         map.setReportVisibility(!map.reportVisible);
-        renderLayers();
+        updateReportControls();
+        if (currentView === 'layers' && !panel().hidden) renderLayers();
         if (map.reportVisible) void refreshReports();
       }
       if (button.hasAttribute('data-report-refresh')) void refreshReports(true);
@@ -761,13 +831,17 @@ window.GreenAtlas = (() => {
       map.viewer.camera.zoomOut(
         map.viewer.camera.positionCartographic.height * 0.45
       );
-    $("cityHome").onclick = () => map.home();
+    if ($("cityHome")) $("cityHome").onclick = () => map.home();
     $("basemapButton").onclick = () => {
       $("basemapPanel").hidden = !$("basemapPanel").hidden;
+    };
+    $("openBasemap").onclick = () => {
+      $("basemapPanel").hidden = false;
     };
     $("greenAIButton").onclick = () =>
       ai && !ai.chatPanel.hidden ? closeAI() : openAI();
     $("mobileAI").onclick = openAI;
+    $("mobileLabs").onclick = () => activateAppView("labs");
     $("mobileMap").onclick = () => {
       closePanel();
       closeAI();
@@ -853,11 +927,10 @@ window.GreenAtlas = (() => {
       /* Storage is optional. */
     }
     $("themeNavigation").innerHTML = GreenData.themes
+      .filter((theme) => theme.id !== "climate")
       .map(
         (t) =>
-          `<button class="nav-item" data-theme="${t.id}" title="${
-            t.name
-          }">${icon(t.icon)}${t.name}</button>`
+          `<div class="layer-control" style="--layer-color:${t.color}"><button class="layer-main" data-theme="${t.id}" title="${t.name}">${icon(t.icon)}<span><strong>${t.layer}</strong><small>${t.name}</small></span></button><button class="switch" role="switch" aria-label="${t.layer}" aria-checked="${["parks", "trees", "water"].includes(t.id)}" data-layer="${t.id}"></button></div>`
       )
       .join("");
     map = new GreenMap(viewer, (id) => showObject(id, false), updateContext);
@@ -874,6 +947,9 @@ window.GreenAtlas = (() => {
     await map.load();
     bind();
     showView("explore");
+    panel().hidden = true;
+    GreenLabs.bind();
+    activateAppView("map");
     void treeLoad.then((ready) => {
       if (!ready) return;
       if (statusPill) statusPill.innerHTML = "<i></i> OSM + Stadt Köln";
@@ -899,6 +975,7 @@ window.GreenAtlas = (() => {
     getMap: () => map,
     getUserLocation: () => userLocation,
     getSelectedId: () => map?.selectedId,
+    activateAppView,
     setThemeVisible,
     setReports,
     loadReports: () => GreenReports.load(),

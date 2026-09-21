@@ -13,6 +13,16 @@
   to = "/.netlify/functions/sags-uns"
   status = 200
 
+[[redirects]]
+  from = "/api/routes"
+  to = "/.netlify/functions/routes"
+  status = 200
+
+[[redirects]]
+  from = "/api/geocode"
+  to = "/.netlify/functions/geocode"
+  status = 200
+
 [[headers]]
   for = "/*.html"
   [headers.values]

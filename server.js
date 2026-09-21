@@ -15,6 +15,7 @@ import createRoute from "./scripts/createRoute.js";
 import { serveCarto } from "./netlify/functions/carto.mjs";
 import { createRateLimiter, sanitizeMessages } from "./scripts/chat-guard.mjs";
 import { loadGreenReports } from "./scripts/sags-uns-service.mjs";
+import { serveGeocode, serveRoutes } from "./scripts/route-service.mjs";
 
 const argv = yargs(process.argv)
   .options({
@@ -430,6 +431,37 @@ async function generateDevelopmentBuild() {
     } catch {
       res.status(502).json({ error: 'reports_unavailable' });
     }
+  });
+
+  const allowRouteRequest = createRateLimiter({ limit: 20, windowMs: 60000 });
+  app.post("/api/routes", express.text({ type: "application/json", limit: "2kb" }), async function (req, res) {
+    if (!allowRouteRequest(req.ip || "local")) {
+      return res.status(429).json({ error: "rate_limited" });
+    }
+    const response = await serveRoutes(
+      new Request(`${req.protocol}://${req.headers.host}${req.originalUrl}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: typeof req.body === "string" ? req.body : JSON.stringify(req.body || {}),
+      }),
+      process.env.ORS_API_KEY,
+      fetch
+    );
+    response.headers.forEach((value, name) => res.setHeader(name, value));
+    res.status(response.status).send(await response.text());
+  });
+
+  app.get("/api/geocode", async function (req, res) {
+    if (!allowRouteRequest(req.ip || "local")) {
+      return res.status(429).json({ error: "rate_limited" });
+    }
+    const response = await serveGeocode(
+      new Request(`${req.protocol}://${req.headers.host}${req.originalUrl}`),
+      process.env.ORS_API_KEY,
+      fetch
+    );
+    response.headers.forEach((value, name) => res.setHeader(name, value));
+    res.status(response.status).send(await response.text());
   });
 
   // Same as the Netlify rewrite: the app answers on "/" without a visible path.

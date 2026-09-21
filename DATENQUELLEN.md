@@ -47,3 +47,11 @@ Die API antwortete beim Test ohne `Access-Control-Allow-Origin`; deshalb nutzt d
 ## Weitere Quellen
 
 Ein [Grünflächenkataster](https://www.offenedaten-koeln.de/) bleibt eine mögliche spätere Fachquelle und ist noch nicht eingebunden. Wikidata dient derzeit nur zur Bildzuordnung; weitere Sachdaten werden nicht importiert. Für „Klima & Umwelt“ liegen in der Karte weiterhin keine Messwerte vor.
+
+## Coolrouten und Adresssuche
+
+Coolrouten verwendet [openrouteservice](https://openrouteservice.org/) serverseitig mit den Profilen `foot-walking` und `wheelchair`. Der Browser sendet ausschließlich Start- und Zielkoordinaten an `/api/routes`; der lokale Express-Server und die Netlify Function halten `ORS_API_KEY` außerhalb des Clientcodes. Eingaben werden auf einen Kölner Koordinatenrahmen begrenzt, Antworten zeitlich begrenzt und nur kurz zwischengespeichert. Die Adresssuche `/api/geocode` nutzt denselben Anbieter und gibt nur Treffer innerhalb dieses Rahmens zurück.
+
+Die „Coolroute“ nutzt die Grüngewichtung des Fußprofils. Schnellste und barriereärmere Route werden als getrennte Vergleiche angefragt. Distanz und Dauer stammen aus dem Routingdienst auf OpenStreetMap-Basis. Das angezeigte Grün-/Schattenpotenzial ist dagegen ein lokaler, ausdrücklich nicht amtlicher Näherungswert: Entlang der zurückgegebenen Geometrie werden vorhandene Baumkatasterpunkte, Grünorte und Brunnen in begrenzten Korridoren gezählt. Der Wert beschreibt weder tatsächlichen Schatten zu einer Uhrzeit noch eine gemessene Temperaturreduktion. Ohne konfigurierten Schlüssel bleibt die Karte vollständig nutzbar und Coolrouten zeigt einen klaren Konfigurationshinweis.
+
+Die Labs „Smart Watering Pilot“, „Brunnen 3D“ und „Grünflächen-Monitoring“ sind als Vorschauen gekennzeichnet. Sie behaupten keine angeschlossenen Sensoren, Live-Bewässerungswerte oder automatische Satelliten-/KI-Auswertung.

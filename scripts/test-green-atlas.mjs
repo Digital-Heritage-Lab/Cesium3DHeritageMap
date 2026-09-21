@@ -58,6 +58,9 @@ test('The main page uses only the new product styles and retains the Cesium engi
   const html = await readFile(new URL('../Apps/3DHeritageMapApp.html', import.meta.url), 'utf8');
   assert.ok(html.includes('GreenAtlas.css'));
   assert.ok(html.includes('../Build/Cesium/Cesium.js'));
+  assert.ok(html.includes('https://www.stadt-koeln.de/images/x22/logo-stadt-koeln.svg'));
+  assert.ok(html.includes('sidebarReportMeta'));
+  assert.ok(html.includes('Amt für Landschaftspflege und Grünflächen'));
   assert.ok(!html.includes('3DHeritageStyles.css'));
   assert.ok(!html.includes('AIChatStyles.css'));
   assert.ok(!html.includes('user-scalable=no'));
@@ -65,4 +68,16 @@ test('The main page uses only the new product styles and retains the Cesium engi
     assert.ok(html.includes(script));
     assert.ok((await readFile(new URL('../Apps/' + script, import.meta.url), 'utf8')).length > 100);
   }
+});
+
+test('Brunnen 3D embeds the attributed Sketchfab model', async () => {
+  const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
+  assert.ok(labs.includes('https://sketchfab.com/models/e452ea5a9f2545079de0244b6e11f978/embed'));
+  assert.ok(labs.includes('Digital Heritage Lab'));
+  assert.ok(labs.includes('K%C3%B6ln-Brunnen-Im-Dau-9.JPG'));
+  assert.ok(labs.includes('Willy Horsch (HOWI), CC BY 3.0'));
+  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png']) {
+    assert.ok(labs.includes(`Images/labs/${image}`));
+  }
+  assert.ok(labs.includes('allowfullscreen'));
 });

@@ -24,6 +24,8 @@
     <script src="GreenTrees.js" defer></script>
     <script src="GreenReports.js" defer></script>
     <script src="GreenAtlasMap.js" defer></script>
+    <script src="GreenRoutes.js" defer></script>
+    <script src="GreenLabs.js" defer></script>
     <script src="GreenAITools.js" defer></script>
     <script src="AIChatBot.js" defer></script>
     <script src="GreenAI.js" defer></script>
@@ -33,23 +35,32 @@
   <body>
     <a class="skip-link" href="/#mapWorkspace">Zur Karte</a>
     <header class="app-header">
-      <a
-        class="brand"
-        href="/"
-        aria-label="Grün Atlas Köln, entwickelt von der Stadt Köln, Amt für Landschaftspflege und Grünflächen. Startseite"
-        ><img src="Images/gruen-atlas.svg" alt="" width="38" height="38" /><span
-          >GRÜN ATLAS<small>KÖLN</small><span class="brand-office"
-            >Stadt Köln · Amt für Landschaftspflege und Grünflächen</span
-          ></span
-        ></a
-      >
+      <div class="brand-lockup">
+        <a class="city-wordmark" href="https://www.stadt-koeln.de" target="_blank" rel="noopener noreferrer" aria-label="Stadt Köln öffnen">
+          <img class="city-logo" src="https://www.stadt-koeln.de/images/x22/logo-stadt-koeln.svg" alt="Stadt Köln" />
+        </a>
+        <span class="brand-separator"></span>
+        <a class="brand" href="/" aria-label="GrünAtlas Köln Startseite"><span>GrünAtlas Köln</span><small>Mehr Grün. Für morgen.</small></a>
+      </div>
+      <nav class="primary-nav" aria-label="Hauptbereiche">
+        <button class="active" data-app-view="map"><span data-icon="map"></span>Karte</button>
+        <button data-app-view="ai"><span data-icon="sprout"></span>Grün AI</button>
+        <button data-app-view="labs"><span data-icon="flask"></span>Labs</button>
+        <button data-app-view="more"><span data-icon="more"></span>Mehr</button>
+      </nav>
+      <div class="header-actions">
+        <button data-app-view="help"><span data-icon="help"></span>Hilfe</button>
+        <button class="login-button" disabled title="Anmeldung ist in dieser Version noch nicht verfügbar"><span data-icon="user"></span>Anmelden</button>
+      </div>
+    </header>
+    <aside class="sidebar" aria-label="Kartensteuerung">
       <div class="search-wrap">
         <span data-icon="search"></span
         ><input
           id="greenSearch"
           type="search"
-          placeholder="Grünes Köln durchsuchen …"
-          aria-label="Grünes Köln durchsuchen"
+          placeholder="Adresse, Ort oder Thema suchen ..."
+          aria-label="Adresse, Ort oder Thema suchen"
           aria-controls="searchResults"
           aria-expanded="false"
           autocomplete="off"
@@ -61,45 +72,29 @@
           hidden
         ></section>
       </div>
-      <div class="header-actions">
-        <span class="demo-pill"><i></i> Demo entdecken</span
-        ><button class="city-button" id="cityHome" title="Ganz Köln anzeigen">
-          <span data-icon="pin"></span> Köln <span data-icon="chevron"></span>
-        </button>
+      <div class="sidebar-tabs" role="tablist">
+        <button class="active" role="tab" aria-selected="true" data-sidebar-tab="layers"><span data-icon="layers"></span>Kartenebenen</button>
+        <button role="tab" aria-selected="false" data-sidebar-tab="legend"><span data-icon="list"></span>Legende</button>
       </div>
-    </header>
-    <aside class="sidebar" aria-label="Hauptnavigation">
-      <div class="sidebar-top">
-        <span class="eyebrow">DEIN GRÜNES KÖLN</span
-        ><button class="nav-item active" data-view="explore">
-          <span data-icon="compass"></span>Entdecken<span class="nav-arrow"
-            >↗</span
-          >
-        </button>
-      </div>
-      <span class="nav-label">THEMEN ENTDECKEN</span>
-      <nav id="themeNavigation" aria-label="Grün-Themen"></nav>
+      <section id="layerSidebar" class="layer-sidebar">
+        <details open><summary>Grün & Freizeit</summary><nav id="themeNavigation" aria-label="Grün-Themen"></nav></details>
+        <section class="sidebar-reports" aria-labelledby="sidebarReportsTitle">
+          <h2 id="sidebarReportsTitle">Bürgerinformationen · Meldungen</h2>
+          <div class="layer-control" style="--layer-color:#8a6840">
+            <a class="layer-main" href="https://sags-uns.stadt-koeln.de/requests" target="_blank" rel="noopener noreferrer" title="Sag's uns Köln öffnen"><span data-icon="report"></span><span><strong>Sag's uns Köln</strong><small id="sidebarReportMeta">Grünmeldungen · letzte 30 Tage</small></span></a>
+            <button class="switch" role="switch" aria-label="Sag's uns Köln, Grünmeldungen" aria-checked="false" data-report-layer></button>
+          </div>
+        </section>
+        <details><summary>Natur & Umwelt</summary><div class="sidebar-group-links"><button data-theme="climate">Klima & Umwelt</button><button data-view="about">Daten & Quellen</button></div></details>
+        <details><summary>Planung & Entwicklung</summary><div class="sidebar-empty">Weitere Fachdaten folgen.</div></details>
+        <details><summary>Verwaltungsgrenzen</summary><div class="sidebar-group-links"><button data-view="about">Kölner Stadtteile</button></div></details>
+        <details><summary>Hintergrundkarten</summary><div class="sidebar-group-links"><button id="openBasemap">Grundkarte auswählen</button></div></details>
+      </section>
+      <section id="legendSidebar" class="legend-sidebar" hidden><h2>Legende</h2><div id="sidebarLegend"></div><p>Die Darstellung zeigt vorhandene offene und städtische Daten. Details stehen an jedem Objekt.</p></section>
       <div class="sidebar-bottom">
-        <button class="nav-item" data-view="layers">
-          <span data-icon="layers"></span>Kartenebenen<span
-            id="layerCount"
-            class="nav-count"
-            >3</span
-          ></button
-        ><button class="nav-item" data-view="favorites">
-          <span data-icon="heart"></span>Meine Orte<span
-            id="favoriteCount"
-            class="nav-count"
-            >0</span
-          ></button
-        ><button class="nav-item" data-view="about">
-          <span data-icon="info"></span>Über Grün Atlas
-        </button>
-        <div class="sidebar-note">
-          <span class="leaf-dot"></span> Stadt Köln<small
-            >Amt für Landschaftspflege und Grünflächen</small
-          >
-        </div>
+        <a href="#" data-view="about">Über den GrünAtlas Köln</a><a href="#" data-view="about">Datenquellen</a><a href="mailto:feedback@example.invalid">Feedback</a>
+        <p class="sidebar-publisher">Entwickelt von der <a href="https://www.stadt-koeln.de/service/adressen/amt-fuer-landschaftspflege-und-gruenflaechen" target="_blank" rel="noopener noreferrer">Stadt Köln, Amt für Landschaftspflege und Grünflächen</a>.</p>
+        <span id="layerCount" hidden>3</span><span id="favoriteCount" hidden>0</span><span class="demo-pill" hidden><i></i> OSM-Auszug</span>
       </div>
     </aside>
     <main
@@ -113,7 +108,7 @@
         <span class="loader"></span> Dein grünes Köln wird geladen …
       </div>
       <div class="map-heading">
-        <span class="map-live"></span><span>Köln entdecken</span
+        <span class="map-live"></span><span>GrünAtlas Köln</span
         ><span class="map-divider"></span
         ><span id="visibleCount">Karte lädt</span>
       </div>
@@ -190,13 +185,25 @@
         hidden
       ></section>
       <div id="toast" class="toast" role="status" hidden></div>
+      <section class="map-statistics" aria-label="Kennzahlen">
+        <button data-theme="trees"><span data-icon="tree"></span><span><strong id="treeStat">210.482</strong><small>Bäume im Kataster</small></span></button>
+        <button data-theme="parks"><span data-icon="park"></span><span><strong id="greenStat">--</strong><small>Grünflächen erfasst</small></span></button>
+        <button data-theme="play"><span data-icon="play"></span><span><strong id="playStat">--</strong><small>Spielplätze</small></span></button>
+        <button data-theme="water"><span data-icon="water"></span><span><strong id="waterStat">--</strong><small>Brunnen & Wasser</small></span></button>
+      </section>
     </main>
+    <section id="labsWorkspace" class="labs-workspace" aria-label="GrünAtlas Labs" hidden>
+      <div class="labs-map-context" aria-hidden="true"><span data-icon="flask"></span><strong>Labs</strong><p>Koeln als Reallabor fuer eine gruene, klimaangepasste Stadt.</p></div>
+      <main id="labsCatalog" class="labs-catalog"></main>
+      <aside id="labsDetail" class="labs-detail"></aside>
+    </section>
     <nav class="mobile-nav" aria-label="Mobile Navigation">
       <button data-view="explore">
         <span data-icon="compass"></span>Entdecken</button
       ><button id="mobileMap"><span data-icon="map"></span>Karte</button
       ><button id="mobileSearch"><span data-icon="search"></span>Suche</button
       ><button id="mobileAI"><span data-icon="sparkles"></span>GrünAI</button>
+      <button id="mobileLabs"><span data-icon="flask"></span>Labs</button>
     </nav>
     <noscript
       >Bitte aktiviere JavaScript, um die interaktive Karte zu

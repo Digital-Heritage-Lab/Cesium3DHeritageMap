@@ -18,6 +18,7 @@ window.GreenAITools = (() => {
     "get_map_context",
     "rank_trees",
     "rank_districts",
+    "open_coolroutes",
   ];
   // Recognised but not implemented yet (Phase 2); they are rejected with a clear message.
   const PLANNED_ACTIONS = ["calculate_route", "spatial_analysis", "compare_areas"];
@@ -635,6 +636,10 @@ window.GreenAITools = (() => {
         ...ranked.slice(0, action.limit).map(([name, count]) => `• ${name}: ${number(count)}`),
         "Quelle: Baumkataster Stadt Köln; betreute Einzelbäume, kein vollständiger Baumbestand."].join("\n") };
     },
+    open_coolroutes() {
+      atlas().activateAppView("labs");
+      return { kind: "map", message: "Ich öffne Coolrouten Köln. Wähle dort Start und Ziel; Entfernungen und Kennzahlen werden erst aus dem Routingdienst und den geladenen Gründaten berechnet." };
+    },
     find_nearby(action) {
       const origin = nearbyOrigin(action);
       if (!origin.center) return { kind: "query", message: origin.message };
@@ -771,6 +776,9 @@ window.GreenAITools = (() => {
   function localIntent(text, state = {}) {
     const q = norm(text).replace(/[?!.,;:'’"„“]+/g, " ").replace(/\s+/g, " ").trim();
     if (!q) return null;
+    if (/coolroute|kuhle route|grune route|schattige route|route vergleichen/.test(q)) {
+      return { action: { type: "open_coolroutes" } };
+    }
     const subject = q.split(/\b(?:in der nahe|im umkreis|im radius|entfernt von)\b/)[0];
     const theme = detectTheme(subject) || detectTheme(q);
     const view = /sehe|gerade|hier|ausschnitt|karte|sichtbar|diesem bereich/.test(q);
@@ -919,11 +927,12 @@ window.GreenAITools = (() => {
       '{"type":"get_map_context"}',
       '{"type":"rank_trees","metric":"planting_year|height|trunk|crown","scope":"viewport|all_loaded","limit":5,"district":"Stadtteil"}',
       '{"type":"rank_districts","metric":"tree_count","limit":5}',
+      '{"type":"open_coolroutes"}  (öffnet nur die Routingoberfläche; keine erfundenen Routenwerte)',
       'count_features und list_features akzeptieren optional "district":"Stadtteil"; find_nearby akzeptiert "origin":"object" mit "object_id" aus dem Kontext.',
       'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
       "Datenquellen: begrenzter OpenStreetMap-Auszug, Baumkataster der Stadt Köln (betreute Einzelbäume, nicht alle Bäume), Sag's uns Köln (Meldungen der letzten 30 Tage), sonst Demo-Daten. Keine Quelle ist ein vollständiger amtlicher Bestand.",
       'Ob eine Baumart essbare Früchte trägt, entscheidest du nicht: GrünAtlas prüft das über eine feste Artenliste; du setzt nur "edible":true bzw. "species". Sage nie, Früchte seien bedenkenlos essbar.',
-      "„In meiner Nähe“ braucht den Standort des Nutzers (userLocationAvailable im Kontext). Routing gibt es nicht.",
+      "„In meiner Nähe“ braucht den Standort des Nutzers (userLocationAvailable im Kontext). Für Fußrouten darfst du nur open_coolroutes verwenden; GrünAtlas berechnet die Route anschließend serverseitig.",
       `Kontext (JSON): ${JSON.stringify(buildContext(state))}`,
     ].join("\n");
   }

@@ -54,6 +54,7 @@ function useAtlas({ bounds = CENTER, height = 1500, location = null, selectedId 
     getMap: () => map, getActiveTheme: () => undefined,
     getUserLocation: () => location, getSelectedId: () => selectedId,
     setThemeVisible: (id, show) => { if (show) visible.add(id); else visible.delete(id); },
+    activateAppView: (view) => calls.push(['activateAppView', view]),
     setReports: async (options) => {
       map.setReportVisibility(options.visible);
       map.setReportFilters({ category: options.category ?? map.reportFilters.category,
@@ -217,6 +218,15 @@ test('10b. Radius wird auf 50 bis 10000 Meter begrenzt', () => {
   assert.equal(GreenAITools.localIntent('Brunnen 500 Meter von diesem Punkt entfernt').action.origin, 'selected');
 });
 
+test('10c. Coolrouten öffnet nur die kontrollierte Routingoberfläche', async () => {
+  const map = useAtlas();
+  const result = await GreenAITools.handleLocal('Zeige mir eine kühle Route');
+  assert.equal(result.ok, true);
+  assert.equal(result.action.type, 'open_coolroutes');
+  assert.deepEqual(map.calls.at(-1), ['activateAppView', 'labs']);
+  assert.match(result.message, /Coolrouten Köln/);
+});
+
 test('11. Weltweite Fragen erzeugen keine Vollständigkeitsbehauptung', async () => {
   useAtlas();
   const result = await GreenAITools.handleLocal('Wie viele Brunnen gibt es auf der ganzen Welt?');
@@ -248,7 +258,7 @@ test('Nur bekannte Felder überleben die Validierung', () => {
   useAtlas();
   const checked = GreenAITools.validate({ type: 'show_theme', theme: 'water', code: 'alert(1)', selector: '#x' });
   assert.deepEqual(JSON.parse(JSON.stringify(checked.action)), { type: 'show_theme', theme: 'water' });
-  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 15);
+  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 16);
 });
 
 test('Der <action>-Block wird aus dem sichtbaren Text entfernt', () => {
