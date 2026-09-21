@@ -2,11 +2,17 @@
 window.GreenTrees = (() => {
   let snapshot = null;
   let rows = [];
+  let searchTexts = [];
   const byId = new Map();
   const cells = new Map();
   const clean = (value) => String(value || '').toLocaleLowerCase('de').normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss');
   const cell = (lon, lat) => `${Math.floor(lon * 100)}:${Math.floor(lat * 100)}`;
+  const yieldMain = () => new Promise((resolve) => {
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(resolve, { timeout: 50 });
+    else if (typeof setTimeout === 'function') setTimeout(resolve, 0);
+    else resolve();
+  });
 
   function feature(row) {
     const [number, lon, lat, german, botanical, street, district, planted, trunk, height, crown, ownership] = row;
@@ -35,12 +41,16 @@ window.GreenTrees = (() => {
     }
     snapshot = candidate;
     rows = candidate.trees;
-    for (const row of rows) {
+    searchTexts = new Array(rows.length);
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
       const id = `citytree-${row[0]}`;
       byId.set(id, row);
       const key = cell(row[1], row[2]);
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key).push(row);
+      searchTexts[index] = clean([row[0].split('@')[0], row[3], row[4], row[5], row[6]].join(' '));
+      if (index > 0 && index % 4000 === 0) await yieldMain();
     }
     return true;
   }
@@ -78,10 +88,9 @@ window.GreenTrees = (() => {
     if (!snapshot || clean(query).trim().length < 3) return [];
     const words = clean(query).trim().split(/\s+/);
     const found = [];
-    for (const row of rows) {
-      const text = clean([row[0].split('@')[0], row[3], row[4], row[5], row[6]].join(' '));
-      if (words.every((word) => text.includes(word))) {
-        found.push(feature(row));
+    for (let index = 0; index < rows.length; index++) {
+      if (words.every((word) => searchTexts[index].includes(word))) {
+        found.push(feature(rows[index]));
         if (found.length >= limit) break;
       }
     }

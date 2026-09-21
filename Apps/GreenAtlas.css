@@ -1979,7 +1979,7 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
 .lab-detail-head p { margin: 0; color: #5f6d83; }
 .lab-detail-head > button { padding: 7px; border-radius: 5px; }
 .lab-detail-body { padding: 22px; }
-.external-lab-detail > img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center; border: 1px solid #ccd6de; border-radius: 6px; background: #081426; }
+.external-lab-detail > img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; object-position: center; border: 1px solid #ccd6de; border-radius: 6px; background: #081426; }
 .external-lab-detail h3 { margin: 18px 0 8px; font-size: 18px; }
 .external-lab-detail > p { color: #526176; line-height: 1.55; }
 .external-lab-features { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 16px 0; }
@@ -2042,7 +2042,7 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .primary-nav button { min-width: 86px; padding: 0 10px; }
   .app-header .header-actions .login-button { display: none; }
   .map-tools { right: 10px; top: 10px; }
-  .labs-workspace { grid-template-columns: 0 minmax(460px, 55%) minmax(360px, 45%); }
+  .labs-workspace { grid-template-columns: minmax(460px, 55%) minmax(360px, 45%); }
   .labs-map-context { display: none; }
 }
 
@@ -2056,15 +2056,18 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .brand small, .primary-nav, .app-header .header-actions { display: none; }
   .sidebar { display: none; }
   .map-workspace { top: var(--header); left: 0; bottom: 66px; }
-  .map-statistics { left: 8px; right: 8px; bottom: 8px; height: 52px; gap: 4px; }
+  .map-statistics { left: 8px; right: 8px; bottom: 8px; height: 52px; gap: 4px; transition: opacity 160ms ease; }
   .map-statistics button { gap: 4px; padding: 4px; }
   .map-statistics .icon { width: 20px; height: 20px; }
   .map-statistics strong { font-size: 12px; }
   .map-statistics small { font-size: 7px; }
   .map-bottom { display: none; }
   .map-tools { right: max(8px, env(safe-area-inset-right)); top: 8px; }
-  .content-panel, .object-panel, #aiChatPanel { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: calc(100% - 28px); border-radius: 7px; }
-  #aiChatPanel { height: min(650px, calc(100% - 16px)); }
+  .cesium-viewer-bottom { bottom: 64px !important; max-width: calc(100% - 16px); }
+  .map-workspace:has(.content-panel:not([hidden]), .object-panel:not([hidden]), #aiChatPanel:not([hidden])) .map-statistics { opacity: 0; visibility: hidden; pointer-events: none; }
+  .map-workspace:has(.content-panel:not([hidden]), .object-panel:not([hidden]), #aiChatPanel:not([hidden])) .cesium-viewer-bottom { bottom: 4px !important; }
+  .content-panel, .object-panel, #aiChatPanel { left: 8px; right: 8px; top: auto; bottom: 24px; width: auto; max-height: calc(100% - 44px); border-radius: 7px; }
+  #aiChatPanel { height: min(650px, calc(100% - 32px)); }
   .mobile-nav { height: 66px; }
   .mobile-nav button { min-width: 48px; padding: 6px 7px; }
   .labs-workspace { inset: var(--header) 0 66px; display: block; overflow: auto; background: #fff; }
@@ -2078,6 +2081,13 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .labs-detail:not(:empty) { display: block; }
   .route-metrics { grid-template-columns: 1fr 1fr; }
   .address-search > div { grid-template-columns: 1fr; }
+  body.mobile-search-open .sidebar { display: block; position: fixed; inset: var(--header) 0 66px; width: auto; padding: 12px; z-index: 40; background: #f8faf8; }
+  body.mobile-search-open .sidebar-tabs,
+  body.mobile-search-open .layer-sidebar,
+  body.mobile-search-open .legend-sidebar,
+  body.mobile-search-open .sidebar-bottom { display: none; }
+  body.mobile-search-open .sidebar .search-wrap { height: 48px; }
+  body.mobile-search-open .search-results { top: 56px; max-height: calc(100dvh - 150px); }
 }
 
 @media (max-width: 340px) {
@@ -2085,4 +2095,7 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .map-statistics small { display: none; }
   .map-statistics button { flex-direction: column; }
   .mobile-nav button { min-width: 42px; font-size: 8px; }
+  .map-tools { top: 50px; grid-template-columns: repeat(7, 30px); gap: 1px; padding: 3px; }
+  .map-tools button { width: 30px; min-width: 30px; height: 32px; min-height: 32px; }
+  .map-tools .tool-divider { width: 1px; height: 22px; margin: 5px auto; }
 }

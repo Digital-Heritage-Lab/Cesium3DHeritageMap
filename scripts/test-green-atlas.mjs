@@ -63,6 +63,7 @@ test('The main page uses only the new product styles and retains the Cesium engi
   assert.ok(html.includes('Amt für Landschaftspflege und Grünflächen'));
   assert.ok(!html.includes('3DHeritageStyles.css'));
   assert.ok(!html.includes('AIChatStyles.css'));
+  assert.ok(!html.includes('GreenRoutes.js'));
   assert.ok(!html.includes('user-scalable=no'));
   for (const script of ['GreenAtlasData.js', 'GreenAtlasMap.js', 'GreenAtlas.js', 'GreenAI.js']) {
     assert.ok(html.includes(script));
@@ -76,8 +77,9 @@ test('Brunnen 3D embeds the attributed Sketchfab model', async () => {
   assert.ok(labs.includes('Digital Heritage Lab'));
   assert.ok(labs.includes('K%C3%B6ln-Brunnen-Im-Dau-9.JPG'));
   assert.ok(labs.includes('Willy Horsch (HOWI), CC BY 3.0'));
-  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png', 'cologne-urban-tree-atlas.png', 'urban-green-lidar-map.png', 'gruendaten-katalog.png', 'digifried-2.png']) {
+  for (const image of ['coolroutes-960.webp', 'smart-watering-960.webp', 'brunnen-im-dau-960.webp', 'gruenflaechen-monitoring-960.webp', 'cologne-urban-tree-atlas-960.webp', 'urban-green-lidar-map-960.webp', 'gruendaten-katalog-960.webp', 'digifried-2-960.webp']) {
     assert.ok(labs.includes(`Images/labs/${image}`));
+    assert.ok((await readFile(new URL(`../Apps/Images/labs/${image}`, import.meta.url))).length > 1000);
   }
   assert.ok(labs.includes('allowfullscreen'));
 });
@@ -121,4 +123,24 @@ test('Report control follows background maps and map tools stay edge aligned', a
   assert.ok(html.indexOf('<summary>Hintergrundkarten</summary>') < html.indexOf('sidebarReportsTitle'));
   assert.ok(css.includes('.map-tools { right: 12px;'));
   assert.ok(css.includes('.map-workspace:has(.content-panel:not([hidden]), .object-panel:not([hidden]), #aiChatPanel:not([hidden])) .map-tools'));
+});
+
+test('Responsive shell protects tablet labs and mobile map controls from collisions', async () => {
+  const css = await readFile(new URL('../Apps/GreenAtlas.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('.labs-workspace { grid-template-columns: minmax(460px, 55%) minmax(360px, 45%); }'));
+  assert.ok(!css.includes('grid-template-columns: 0 minmax(460px'));
+  assert.ok(css.includes('.cesium-viewer-bottom { bottom: 64px !important;'));
+  assert.ok(css.includes('.map-statistics { opacity: 0; visibility: hidden; pointer-events: none; }'));
+  assert.ok(css.includes('body.mobile-search-open .sidebar { display: block;'));
+  assert.ok(css.includes('grid-template-columns: repeat(7, 30px)'));
+});
+
+test('Mobile navigation, search overlay and tree search index have explicit state handling', async () => {
+  const atlas = await readFile(new URL('../Apps/GreenAtlas.js', import.meta.url), 'utf8');
+  const trees = await readFile(new URL('../Apps/GreenTrees.js', import.meta.url), 'utf8');
+  assert.ok(atlas.includes('function setMobileNav(view)'));
+  assert.ok(atlas.includes('function openMobileSearch()'));
+  assert.ok(atlas.includes('document.body.classList.add("mobile-search-open")'));
+  assert.ok(trees.includes('searchTexts = new Array(rows.length)'));
+  assert.ok(trees.includes('index % 4000 === 0'));
 });

@@ -1,4 +1,4 @@
-/* global GreenLabs, GreenRoutes */
+/* global GreenLabs */
 /* Product UI. The existing Cesium bootstrap mounts this controller once ready. */
 window.GreenAtlas = (() => {
   const paths = {
@@ -382,7 +382,7 @@ window.GreenAtlas = (() => {
       id
     )}" aria-pressed="${favorites.has(id)}">${icon("heart")}${
       favorites.has(id) ? "Gemerkt" : "Merken"
-    }</button><button class="secondary-button" data-route-endpoint="start" data-route-object="${escape(id)}">${icon("route")}Als Start</button><button class="secondary-button" data-route-endpoint="end" data-route-object="${escape(id)}">${icon("pin")}Als Ziel</button></div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
+    }</button><a class="secondary-button" href="https://courageous-pudding-391ff7.netlify.app/" target="_blank" rel="noopener noreferrer">${icon("route")}CoolRoutes öffnen</a></div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
       id
     )}<br>${escape(
       p.source
@@ -496,7 +496,9 @@ window.GreenAtlas = (() => {
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
+    setMobileNav(view);
     if (view === "labs") {
+      hideSearch();
       closeAI();
       GreenLabs.open();
       return;
@@ -592,9 +594,39 @@ window.GreenAtlas = (() => {
   function hideSearch() {
     $("searchResults").hidden = true;
     $("greenSearch").setAttribute("aria-expanded", "false");
+    document.body.classList.remove("mobile-search-open");
+  }
+  function setMobileNav(view) {
+    const targets = {
+      explore: document.querySelector('.mobile-nav [data-view="explore"]'),
+      map: $("mobileMap"),
+      search: $("mobileSearch"),
+      ai: $("mobileAI"),
+      labs: $("mobileLabs"),
+    };
+    Object.values(targets).forEach((button) => {
+      if (!button) return;
+      const active = button === targets[view];
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+  }
+  function openMobileSearch() {
+    closeAI();
+    panel().hidden = true;
+    $("objectPanel").hidden = true;
+    $("labsWorkspace").hidden = true;
+    document.body.classList.remove("labs-open");
+    document.body.classList.add("mobile-search-open");
+    setMobileNav("search");
+    search();
+    $("greenSearch").focus();
   }
   function openAI() {
     if (!ai) ai = new GreenAI(map.viewer);
+    hideSearch();
+    setMobileNav("ai");
     if (isMobile()) {
       panel().hidden = true;
       $("objectPanel").hidden = true;
@@ -666,7 +698,7 @@ window.GreenAtlas = (() => {
   function bind() {
     document.addEventListener("click", (event) => {
       const button = event.target.closest("button");
-      if (!event.target.closest(".search-wrap")) hideSearch();
+      if (!event.target.closest(".search-wrap, #mobileSearch")) hideSearch();
       if (!event.target.closest(".basemap-panel, #basemapButton"))
         $("basemapPanel").hidden = true;
       if (!button) return;
@@ -685,20 +717,12 @@ window.GreenAtlas = (() => {
         showView(button.dataset.theme);
         hideSearch();
       }
-      if (button.dataset.view) showView(button.dataset.view);
+      if (button.dataset.view) {
+        showView(button.dataset.view);
+        setMobileNav(button.dataset.view);
+      }
       if (button.dataset.object) showObject(button.dataset.object);
       if (button.dataset.focus) map.focus(button.dataset.focus);
-      if (button.dataset.routeEndpoint && button.dataset.routeObject) {
-        const feature = GreenData.collection.features.find((item) => item.id === button.dataset.routeObject) || GreenTrees.get(button.dataset.routeObject);
-        if (feature) {
-          GreenRoutes.setEndpoint(button.dataset.routeEndpoint, {
-            id: feature.id,
-            label: feature.properties.name,
-            coordinates: feature.geometry.coordinates,
-          });
-          activateAppView("labs");
-        }
-      }
       if (button.dataset.layer) {
         map.setVisibility(
           button.dataset.layer,
@@ -843,13 +867,13 @@ window.GreenAtlas = (() => {
     $("mobileAI").onclick = openAI;
     $("mobileLabs").onclick = () => activateAppView("labs");
     $("mobileMap").onclick = () => {
+      hideSearch();
       closePanel();
       closeAI();
       $("objectPanel").hidden = true;
+      activateAppView("map");
     };
-    $("mobileSearch").onclick = () => {
-      $("greenSearch").focus();
-    };
+    $("mobileSearch").onclick = openMobileSearch;
     $("mapMode").onclick = () => {
       const tilted = $("mapMode").textContent === "2D";
       map.viewer.camera.flyTo({
