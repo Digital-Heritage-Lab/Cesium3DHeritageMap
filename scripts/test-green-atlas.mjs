@@ -76,7 +76,7 @@ test('Brunnen 3D embeds the attributed Sketchfab model', async () => {
   assert.ok(labs.includes('Digital Heritage Lab'));
   assert.ok(labs.includes('K%C3%B6ln-Brunnen-Im-Dau-9.JPG'));
   assert.ok(labs.includes('Willy Horsch (HOWI), CC BY 3.0'));
-  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png', 'cologne-urban-tree-atlas.png', 'urban-green-lidar-map.png']) {
+  for (const image of ['coolroutes.png', 'smart-watering.png', 'brunnen-im-dau.png', 'gruenflaechen-monitoring.png', 'cologne-urban-tree-atlas.png', 'urban-green-lidar-map.png', 'gruendaten-katalog.png', 'digifried-2.png']) {
     assert.ok(labs.includes(`Images/labs/${image}`));
   }
   assert.ok(labs.includes('allowfullscreen'));
@@ -103,4 +103,22 @@ test('Labs includes the Urban Green LiDAR Map draft contribution', async () => {
   assert.ok(labs.includes('https://thunderous-cactus-858ad9.netlify.app/'));
   assert.ok(labs.includes('3D-LiDAR-Punktwolken'));
   assert.ok(labs.includes('badge: "Entwurf"'));
+});
+
+test('Labs includes GrünDaten MVP and digiFried 2.0 project proposal', async () => {
+  const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
+  assert.ok(labs.includes('GrünDaten Katalog'));
+  assert.ok(labs.includes('https://jocular-churros-804908.netlify.app/'));
+  assert.ok(labs.includes('digiFried 2.0'));
+  assert.ok(labs.includes('Digitale Zwillinge für Kölner Friedhöfe'));
+  assert.ok(labs.includes('KI, Drohnen und Remote Sensing'));
+  assert.ok(labs.includes('project: true'));
+});
+
+test('Report control follows background maps and map tools stay edge aligned', async () => {
+  const html = await readFile(new URL('../Apps/3DHeritageMapApp.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../Apps/GreenAtlas.css', import.meta.url), 'utf8');
+  assert.ok(html.indexOf('<summary>Hintergrundkarten</summary>') < html.indexOf('sidebarReportsTitle'));
+  assert.ok(css.includes('.map-tools { right: 12px;'));
+  assert.ok(css.includes('.map-workspace:has(.content-panel:not([hidden]), .object-panel:not([hidden]), #aiChatPanel:not([hidden])) .map-tools'));
 });

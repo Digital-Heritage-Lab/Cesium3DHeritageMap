@@ -621,6 +621,7 @@ small {
   box-shadow: var(--shadow);
   display: grid;
   gap: 2px;
+  transition: opacity 160ms ease, visibility 160ms ease, transform 160ms ease;
 }
 .map-tools button {
   display: grid;
@@ -1917,7 +1918,8 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
 .object-panel { overflow: auto; }
 #aiChatPanel { height: calc(100% - 28px); max-height: none; }
 .panel-body h2, .object-body h2 { font-size: 21px; }
-.map-tools { right: 438px; top: 18px; border-radius: 6px; }
+.map-tools { right: 12px; top: 18px; border-radius: 6px; }
+.map-workspace:has(.content-panel:not([hidden]), .object-panel:not([hidden]), #aiChatPanel:not([hidden])) .map-tools { opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(8px); }
 .map-bottom { bottom: 82px; left: 16px; }
 .basemap-button, .basemap-panel { border-radius: 6px; }
 .basemap-panel { bottom: 136px; left: 16px; }
@@ -1962,6 +1964,8 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
 .lab-monitoring { background: #617a46; }
 .lab-urban-trees { background: #081426; }
 .lab-lidar { background: #14344a; }
+.lab-gruendaten { background: #8c1118; }
+.lab-digifried { background: #c80000; }
 .lab-card-body { padding: 12px; }
 .lab-card-body h3 { margin: 8px 0; font-size: 15px; }
 .lab-card-body p { color: #5d6a7f; font-size: 11px; line-height: 1.45; min-height: 48px; }
@@ -2037,7 +2041,7 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .brand small { display: none; }
   .primary-nav button { min-width: 86px; padding: 0 10px; }
   .app-header .header-actions .login-button { display: none; }
-  .map-tools { right: 18px; top: 72px; }
+  .map-tools { right: 10px; top: 10px; }
   .labs-workspace { grid-template-columns: 0 minmax(460px, 55%) minmax(360px, 45%); }
   .labs-map-context { display: none; }
 }
@@ -2058,7 +2062,7 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
   .map-statistics strong { font-size: 12px; }
   .map-statistics small { font-size: 7px; }
   .map-bottom { display: none; }
-  .map-tools { right: 8px; top: 8px; }
+  .map-tools { right: max(8px, env(safe-area-inset-right)); top: 8px; }
   .content-panel, .object-panel, #aiChatPanel { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: calc(100% - 28px); border-radius: 7px; }
   #aiChatPanel { height: min(650px, calc(100% - 16px)); }
   .mobile-nav { height: 66px; }

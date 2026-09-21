@@ -23,6 +23,16 @@ window.GreenLabs = (() => {
       description: "Entwurf einer interaktiven 3D-LiDAR-Karte für Vegetation, Baumkronen und Gebäude.",
       summary: "Die Urban Green LiDAR Map macht hochauflösende Höhendaten räumlich erfahrbar. LiDAR-Klassen lassen sich nach Boden, niedriger, mittlerer und hoher Vegetation sowie Gebäuden untersuchen.",
       features: [["cube", "3D-LiDAR-Punktwolken"], ["tree", "Vegetation und Baumkronen"], ["layers", "Filterbare Höhenklassen"]] },
+    { id: "gruendaten", title: "GrünDaten Katalog", category: "Daten & Monitoring", icon: "chart", image: "Images/labs/gruendaten-katalog.png", badge: "MVP",
+      url: "https://jocular-churros-804908.netlify.app/", subtitle: "Arbeitscockpit · Amt 67", heading: "Gründaten verlässlich steuern und nutzen",
+      description: "MVP für Datenkatalog, Pflegeanalyse, WebGIS, Zuständigkeiten und Datenqualität.",
+      summary: "Der GrünDaten Katalog bündelt räumliche Datensätze, Metadaten, Qualitätsstatus, Zuständigkeiten und erreichbare Dienste in einem gemeinsamen Arbeitscockpit für das Grünflächenamt.",
+      features: [["chart", "Datenkatalog und Qualität"], ["map", "WebGIS und Fachdaten"], ["user", "Zuständigkeiten und Governance"]] },
+    { id: "digifried", title: "digiFried 2.0", category: "Daten & Monitoring", icon: "cube", image: "Images/labs/digifried-2.png", badge: "Vorhaben", project: true,
+      subtitle: "Digitale Zwillinge für Kölner Friedhöfe", heading: "Friedhöfe intelligent und effizient digitalisieren",
+      description: "Projektvorhaben für digitale Friedhofsverwaltung mit KI, Drohnen und Remote Sensing.",
+      summary: "digiFried 2.0 entwickelt den Digitalisierungsprozess der Kölner Friedhöfe weiter. Drohnen, KI, Remote Sensing, GIS und 3D-Daten schaffen qualitätsgesicherte digitale Zwillinge für Erfassung, Verwaltung, Analyse und Planung. So werden Grabstätten, Vegetation, Wege, Geländemodelle und freie Flächen datenbasiert aktuell gehalten und effizient nutzbar.",
+      features: [["cube", "Digitale Zwillinge und 3D"], ["sparkles", "KI und automatisierte Auswertung"], ["map", "Drohnen, GIS und Remote Sensing"]] },
   ];
   let active = "coolroutes";
   let category = "Alle Labs";
@@ -32,7 +42,7 @@ window.GreenLabs = (() => {
   const icon = (name) => GreenAtlas.icon(name);
   const minutes = (seconds) => `${Math.max(1, Math.round(seconds / 60))} Min`;
   const distance = (meters) => meters < 1000 ? `${meters} m` : `${(meters / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} km`;
-  const cardAction = (lab) => lab.url ? "Beitrag ansehen" : lab.id === "fountains" ? "Öffnen" : "Vorschau";
+  const cardAction = (lab) => lab.project ? "Vorhaben ansehen" : lab.url ? "Beitrag ansehen" : lab.id === "fountains" ? "Öffnen" : "Vorschau";
 
   function card(lab) {
     return `<article class="lab-card${active === lab.id ? " active" : ""}">
@@ -92,8 +102,12 @@ window.GreenLabs = (() => {
       <div class="lab-detail-body fountain-detail"><p class="fountain-intro">Der stillgelegte Travertinbrunnen wurde 1914 von Simon Kirschbaum geschaffen. Die häufig als „Alter Fritz“ bezeichnete Anlage erinnert nach der überlieferten Beschreibung tatsächlich an Magdalena Klotz, die das Werk ihres Großvaters Christoph Winter und damit das Kölner Hänneschentheater fortführte.</p><div class="sketchfab-embed-wrapper"><iframe title="3D-Modell des Brunnens Im Dau in Köln" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" loading="lazy" src="https://sketchfab.com/models/e452ea5a9f2545079de0244b6e11f978/embed?ui_theme=dark&dnt=1"></iframe></div><p class="fountain-help">3D über die Wiedergabetaste starten. Danach mit Ziehen drehen, mit dem Mausrad oder zwei Fingern zoomen. Vollbild ist direkt im Viewer verfügbar.</p><p class="fountain-attribution"><a href="https://sketchfab.com/3d-models/2ff13e42b0f74f7281ebaab42fcdb9d1-e452ea5a9f2545079de0244b6e11f978" target="_blank" rel="nofollow noopener noreferrer">3D-Modell</a> von <a href="https://sketchfab.com/ozcanertan" target="_blank" rel="nofollow noopener noreferrer">Digital Heritage Lab</a> auf <a href="https://sketchfab.com" target="_blank" rel="nofollow noopener noreferrer">Sketchfab</a>.</p><figure class="fountain-reference"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/K%C3%B6ln-Brunnen-Im-Dau-9.JPG?width=900" alt="Historisches Foto des Brunnens Im Dau in Köln" loading="lazy" referrerpolicy="no-referrer"><figcaption>Referenzfoto: <a href="https://commons.wikimedia.org/wiki/File:K%C3%B6ln-Brunnen-Im-Dau-9.JPG" target="_blank" rel="noopener noreferrer">Willy Horsch (HOWI), CC BY 3.0</a></figcaption></figure><button class="secondary-button" data-preview-fountains>${icon("map")}Brunnenstandorte auf der Karte zeigen</button></div>`;
   }
   function externalAppPanel(lab) {
+    const action = lab.url
+      ? `<a class="primary-button external-lab-launch" href="${esc(lab.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Webapp öffnen</a>`
+      : `<div class="preview-state"><strong>Projektvorhaben</strong><span>Konzept für die fachliche und technische Weiterentwicklung der digitalen Friedhofsverwaltung.</span></div>`;
+    const note = lab.project ? "Vorhaben: Umfang, Datenmodelle und Betriebsprozesse werden im weiteren Projektverlauf konkretisiert." : "Externer Labs-Beitrag. Datenstand, Methodik und Verfügbarkeit werden in der verlinkten Anwendung ausgewiesen.";
     return `<div class="lab-detail-head"><span>${icon(lab.icon)}</span><div><span class="beta">${esc(lab.badge || "Beitrag").toUpperCase()}</span><h2>${esc(lab.title)}</h2><p>${esc(lab.subtitle)}</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div>
-      <div class="lab-detail-body external-lab-detail"><img src="${esc(lab.image)}" alt="Projektansicht von ${esc(lab.title)}"><h3>${esc(lab.heading)}</h3><p>${esc(lab.summary)} Der eigenständige Projektbeitrag öffnet sich in einer neuen Browser-Registerkarte.</p><div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div><a class="primary-button external-lab-launch" href="${esc(lab.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Webapp öffnen</a><p class="lab-disclaimer">Externer Labs-Beitrag. Datenstand, Methodik und Verfügbarkeit werden in der verlinkten Anwendung ausgewiesen.</p></div>`;
+      <div class="lab-detail-body external-lab-detail"><img src="${esc(lab.image)}" alt="Projektansicht von ${esc(lab.title)}"><h3>${esc(lab.heading)}</h3><p>${esc(lab.summary)}${lab.url ? " Der eigenständige Projektbeitrag öffnet sich in einer neuen Browser-Registerkarte." : ""}</p><div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div>${action}<p class="lab-disclaimer">${esc(note)}</p></div>`;
   }
   function renderDetail() {
     if (matchMedia("(max-width:760px)").matches && !detailOpen) {
@@ -101,7 +115,7 @@ window.GreenLabs = (() => {
       return;
     }
     const lab = labs.find((item) => item.id === active) || labs[0];
-    $("labsDetail").innerHTML = lab.url ? externalAppPanel(lab) : lab.id === "fountains" ? fountainPanel() : previewPanel(lab);
+    $("labsDetail").innerHTML = lab.url || lab.project ? externalAppPanel(lab) : lab.id === "fountains" ? fountainPanel() : previewPanel(lab);
   }
   function render() { renderCatalog(); renderDetail(); }
   function open(id) {
