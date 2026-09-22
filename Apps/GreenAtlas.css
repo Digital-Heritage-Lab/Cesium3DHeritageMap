@@ -1985,6 +1985,15 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
 .external-lab-features { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 16px 0; }
 .external-lab-features span { display: flex; align-items: center; gap: 9px; min-height: 38px; padding: 8px 10px; border: 1px solid #dce5e1; border-radius: 5px; background: #f3f8f5; color: #184f3c; font-size: 11px; font-weight: 700; }
 .external-lab-features .icon { width: 17px; height: 17px; color: #007a4d; }
+.lab-subprojects { margin: 22px 0 18px; padding-top: 20px; border-top: 1px solid #d8e1e5; }
+.lab-section-label { color: #68788b; font-size: 9px; font-weight: 750; text-transform: uppercase; }
+.lab-subprojects > h3 { margin: 5px 0 12px; }
+.lab-subproject { overflow: hidden; border: 1px solid #d4dee3; border-radius: 6px; background: #fff; }
+.lab-subproject > img { display: block; width: 100%; height: auto; aspect-ratio: 960 / 628; object-fit: cover; object-position: top; border-bottom: 1px solid #d4dee3; }
+.lab-subproject > div { padding: 14px; }
+.lab-subproject h4 { margin: 8px 0 6px; color: #10203a; font-size: 16px; }
+.lab-subproject p { margin: 0 0 13px; color: #526176; font-size: 12px; line-height: 1.5; }
+.lab-subproject .secondary-button { width: 100%; }
 .external-lab-launch { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; }
 .route-form { display: grid; grid-template-columns: 1fr 38px; gap: 9px; padding: 16px; border: 1px solid var(--line); background: #fff; border-radius: 7px; }
 .route-form label { display: grid; gap: 5px; color: #58667b; font-size: 10px; }

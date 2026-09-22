@@ -31,7 +31,10 @@ window.GreenLabs = (() => {
       subtitle: "Digitale Zwillinge für Kölner Friedhöfe", heading: "Friedhöfe intelligent und effizient digitalisieren",
       description: "Projektvorhaben für digitale Friedhofsverwaltung mit KI, Drohnen und Remote Sensing.",
       summary: "digiFried 2.0 entwickelt den Digitalisierungsprozess der Kölner Friedhöfe weiter. Drohnen, KI, Remote Sensing, GIS und 3D-Daten schaffen qualitätsgesicherte digitale Zwillinge für Erfassung, Verwaltung, Analyse und Planung. So werden Grabstätten, Vegetation, Wege, Geländemodelle und freie Flächen datenbasiert aktuell gehalten und effizient nutzbar.",
-      features: [["cube", "Digitale Zwillinge und 3D"], ["sparkles", "KI und automatisierte Auswertung"], ["map", "Drohnen, GIS und Remote Sensing"]] },
+      features: [["cube", "Digitale Zwillinge und 3D"], ["sparkles", "KI und automatisierte Auswertung"], ["map", "Drohnen, GIS und Remote Sensing"]],
+      subprojects: [{ title: "Friedhofsmanagement Melaten", badge: "Unterprojekt", image: "Images/labs/digifried-cemetery-management-960.webp",
+        url: "https://ertanoz.github.io/Cemetery-Management-System/dist/index.html",
+        description: "Interaktive Fachanwendung für digitalisierte Flurflächen, Belegung, Fristen, Aufgaben und Analysen am Melaten-Friedhof." }] },
   ];
   let active = "coolroutes";
   let category = "Alle Labs";
@@ -70,8 +73,9 @@ window.GreenLabs = (() => {
       ? `<a class="primary-button external-lab-launch" href="${esc(lab.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Webapp öffnen</a>`
       : `<div class="preview-state"><strong>Projektvorhaben</strong><span>Konzept für die fachliche und technische Weiterentwicklung der digitalen Friedhofsverwaltung.</span></div>`;
     const note = lab.project ? "Vorhaben: Umfang, Datenmodelle und Betriebsprozesse werden im weiteren Projektverlauf konkretisiert." : "Externer Labs-Beitrag. Datenstand, Methodik und Verfügbarkeit werden in der verlinkten Anwendung ausgewiesen.";
+    const subprojects = lab.subprojects?.length ? `<section class="lab-subprojects" aria-labelledby="lab-subprojects-title"><span class="lab-section-label">digiFried 2.0 · Unterprojekte</span><h3 id="lab-subprojects-title">Digitale Fachanwendungen</h3>${lab.subprojects.map((subproject) => `<article class="lab-subproject"><img src="${esc(subproject.image)}" alt="Projektansicht von ${esc(subproject.title)}" width="960" height="628" loading="lazy" decoding="async"><div><span class="beta">${esc(subproject.badge).toUpperCase()}</span><h4>${esc(subproject.title)}</h4><p>${esc(subproject.description)}</p><a class="secondary-button" href="${esc(subproject.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Anwendung öffnen</a></div></article>`).join("")}</section>` : "";
     return `<div class="lab-detail-head"><span>${icon(lab.icon)}</span><div><span class="beta">${esc(lab.badge || "Beitrag").toUpperCase()}</span><h2>${esc(lab.title)}</h2><p>${esc(lab.subtitle)}</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div>
-      <div class="lab-detail-body external-lab-detail"><img src="${esc(lab.image)}" alt="Projektansicht von ${esc(lab.title)}" width="960" height="540" decoding="async"><h3>${esc(lab.heading)}</h3><p>${esc(lab.summary)}${lab.url ? " Der eigenständige Projektbeitrag öffnet sich in einer neuen Browser-Registerkarte." : ""}</p><div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div>${action}<p class="lab-disclaimer">${esc(note)}</p></div>`;
+      <div class="lab-detail-body external-lab-detail"><img src="${esc(lab.image)}" alt="Projektansicht von ${esc(lab.title)}" width="960" height="540" decoding="async"><h3>${esc(lab.heading)}</h3><p>${esc(lab.summary)}${lab.url ? " Der eigenständige Projektbeitrag öffnet sich in einer neuen Browser-Registerkarte." : ""}</p><div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div>${subprojects}${action}<p class="lab-disclaimer">${esc(note)}</p></div>`;
   }
   function renderDetail() {
     if (matchMedia("(max-width:760px)").matches && !detailOpen) {

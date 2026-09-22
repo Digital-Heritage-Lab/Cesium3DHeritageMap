@@ -115,6 +115,10 @@ test('Labs includes GrünDaten MVP and digiFried 2.0 project proposal', async ()
   assert.ok(labs.includes('Digitale Zwillinge für Kölner Friedhöfe'));
   assert.ok(labs.includes('KI, Drohnen und Remote Sensing'));
   assert.ok(labs.includes('project: true'));
+  assert.ok(labs.includes('Friedhofsmanagement Melaten'));
+  assert.ok(labs.includes('https://ertanoz.github.io/Cemetery-Management-System/dist/index.html'));
+  assert.ok(labs.includes('digifried-cemetery-management-960.webp'));
+  assert.ok((await readFile(new URL('../Apps/Images/labs/digifried-cemetery-management-960.webp', import.meta.url))).length > 1000);
 });
 
 test('Report control follows background maps and map tools stay edge aligned', async () => {

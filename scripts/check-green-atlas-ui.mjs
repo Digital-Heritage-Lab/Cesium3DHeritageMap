@@ -44,13 +44,17 @@ async function open(width, height) {
     focus: document.activeElement?.id,
   }));
   await page.locator('#mobileLabs').click();
-  await page.locator('[data-open-lab="coolroutes"]').click();
+  await page.locator('[data-open-lab="digifried"]').click();
   report.mobileLabs = await page.evaluate(() => ({
     active: document.querySelector('.mobile-nav .active')?.id,
     currentCount: document.querySelectorAll('.mobile-nav [aria-current="page"]').length,
     focusClosesLabs: document.activeElement?.hasAttribute('data-close-labs'),
     detailVisible: getComputedStyle(document.querySelector('#labsDetail')).display,
+    subprojectTitle: document.querySelector('.lab-subproject h4')?.textContent,
+    subprojectImageLoaded: document.querySelector('.lab-subproject img')?.complete,
+    subprojectUrl: document.querySelector('.lab-subproject a')?.href,
   }));
+  await page.screenshot({ path: 'output/playwright/atlas-mobile-digifried-390.png' });
   await page.locator('[data-close-labs]').click();
   await page.locator('#mobileAI').click();
   report.mobileAI = await page.evaluate((overlapSource) => {
