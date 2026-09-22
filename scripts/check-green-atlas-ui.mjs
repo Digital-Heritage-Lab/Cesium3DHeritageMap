@@ -54,6 +54,7 @@ async function open(width, height) {
     subprojectImageLoaded: document.querySelector('.lab-subproject img')?.complete,
     subprojectUrl: document.querySelector('.lab-subproject a')?.href,
   }));
+  await page.locator('.lab-subproject').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'output/playwright/atlas-mobile-digifried-390.png' });
   await page.locator('[data-close-labs]').click();
   await page.locator('#mobileAI').click();

@@ -118,6 +118,10 @@ test('Labs includes GrünDaten MVP and digiFried 2.0 project proposal', async ()
   assert.ok(labs.includes('Friedhofsmanagement Melaten'));
   assert.ok(labs.includes('https://ertanoz.github.io/Cemetery-Management-System/dist/index.html'));
   assert.ok(labs.includes('digifried-cemetery-management-960.webp'));
+  assert.ok(labs.includes('Fluren & Parzellen'));
+  assert.ok(labs.includes('Bauhof & Aufgaben'));
+  assert.ok(labs.includes('Analyse & Datenaustausch'));
+  assert.ok(labs.includes('amtlich vermessenen Einzelgräbern'));
   assert.ok((await readFile(new URL('../Apps/Images/labs/digifried-cemetery-management-960.webp', import.meta.url))).length > 1000);
 });
 

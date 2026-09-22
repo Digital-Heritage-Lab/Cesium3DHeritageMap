@@ -1993,6 +1993,12 @@ h1, h2, h3, .brand, .labs-heading h1, .lab-detail-head h2 { letter-spacing: 0; }
 .lab-subproject > div { padding: 14px; }
 .lab-subproject h4 { margin: 8px 0 6px; color: #10203a; font-size: 16px; }
 .lab-subproject p { margin: 0 0 13px; color: #526176; font-size: 12px; line-height: 1.5; }
+.lab-subproject-features { display: grid; gap: 7px; margin: 0 0 14px; }
+.lab-subproject-features > div { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 9px; padding: 9px; border: 1px solid #e0e7e4; border-radius: 5px; background: #f7faf8; }
+.lab-subproject-features .icon { width: 18px; height: 18px; margin: 2px auto 0; color: #007a4d; }
+.lab-subproject-features span { display: grid; gap: 2px; min-width: 0; }
+.lab-subproject-features strong { color: #183d31; font-size: 11px; }
+.lab-subproject-features small { color: #63726d; font-size: 10px; line-height: 1.4; }
 .lab-subproject .secondary-button { width: 100%; }
 .external-lab-launch { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; }
 .route-form { display: grid; grid-template-columns: 1fr 38px; gap: 9px; padding: 16px; border: 1px solid var(--line); background: #fff; border-radius: 7px; }
