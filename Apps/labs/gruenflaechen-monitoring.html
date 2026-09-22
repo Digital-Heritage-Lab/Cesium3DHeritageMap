@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grünflächen-Monitoring – Urban Green Lab</title>
+<style>
+:root{
+  --red:#ED1C24; --red-text:#C8141B; --ink:#000; --g80:#333; --g60:#666; --g30:#B3B3B3; --g15:#D9D9D9; --g10:#E6E6E6;
+  --bg:#fff; --green:#00843F; --water:#009FE3; --blue:#003C78; --beige:#F3E9C6;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--red-text:#FF5A5F;--ink:#fff;--g80:#ddd;--g60:#aaa;--g30:#555;--g15:#333;--g10:#262626;--bg:#141414;--green:#3DBA6F;--water:#4CC3F0;--blue:#7FB0E6;--beige:#3A3322}}
+:root[data-theme="dark"]{--red-text:#FF5A5F;--ink:#fff;--g80:#ddd;--g60:#aaa;--g30:#555;--g15:#333;--g10:#262626;--bg:#141414;--green:#3DBA6F;--water:#4CC3F0;--blue:#7FB0E6;--beige:#3A3322}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+.band{height:8px;background:var(--red)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 56px}
+.org{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--g15);font-size:14px;color:var(--g80)}
+.org strong{color:var(--red-text);font-size:19px}
+.kicker{font-size:15px;color:var(--g60);margin:32px 0 4px}
+h1{font-size:40px;line-height:1.1;margin:0 0 12px;font-weight:700}
+.lead{max-width:66ch;margin:0 0 18px;font-size:17px;color:var(--g80)}
+.hint{background:var(--g10);padding:10px 14px;font-size:14px;margin:0 0 28px}
+h2{font-size:20px;margin:0 0 14px;padding-top:10px;border-top:2px solid var(--ink)}
+.panel{background:transparent;border:0;padding:0}
+.controls{background:var(--g10);padding:16px;display:grid;gap:18px;align-items:end;margin-bottom:24px}
+label,.ctl label{display:block;font-size:14px;font-weight:700;margin-bottom:6px}
+.seg{display:flex;border:1px solid var(--g60)}
+.seg button{flex:1;border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:15px;padding:9px 6px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--g60)}
+.seg button[aria-pressed="true"]{background:var(--red);color:#fff;font-weight:700}
+select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--g60);border-radius:0;background:var(--bg);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--red)}
+.val{font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--g15)}
+th{font-size:13px;font-weight:700;border-bottom:2px solid var(--ink)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+.tag{font-size:12px;border:1px solid var(--g60);padding:0 4px;color:var(--g80);font-weight:400}
+svg text{fill:var(--g60);font-family:inherit;font-size:11px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--g60);margin-top:8px;flex-wrap:wrap;align-items:center}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}
+.method p{margin:0 0 10px;font-size:15px;color:var(--g80)}
+.method code{background:var(--g10);color:var(--ink);padding:2px 6px;font-size:14px}
+.lower{display:grid;grid-template-columns:1.4fr 1fr;gap:32px;margin-top:36px}
+button:focus-visible,select:focus-visible,input:focus-visible,tr:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+
+.controls{grid-template-columns:1.2fr 1fr 1fr 1.2fr}
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:32px}
+.mapbox{position:relative;width:100%;aspect-ratio:48/30;overflow:hidden;border:1px solid var(--g30)}
+.mapbox canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+#cB{clip-path:inset(0 0 0 50%)}
+.divider{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px #000;left:50%;pointer-events:none}
+.yl{position:absolute;top:8px;background:#000;color:#fff;font-size:13px;font-weight:700;padding:2px 8px}
+#swipe{width:100%;margin-top:10px}
+.ramp{display:inline-block;width:120px;height:10px;background:linear-gradient(90deg,#D9D4C7,#F3E9C6,#B5D38A,#7AB648,#006E34);vertical-align:middle;margin:0 6px}
+.sw{display:inline-block;width:12px;height:12px;vertical-align:middle;margin-right:5px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.kpi{border-top:1px solid var(--g30);padding-top:6px}
+.kpi span{display:block;font-size:13px;color:var(--g60)}
+.kpi strong{font-size:24px;font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal;font-size:14px;color:var(--g60);display:block}
+.neg{color:var(--red-text)} .pos{color:var(--blue)}
+.note{background:var(--beige);padding:10px 12px;font-size:14px;margin:10px 0 0}
+.note.plain{background:var(--g10)}
+.prov{font-size:14px}
+.prov dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+.prov dt{color:var(--g60)} .prov dd{margin:0;font-variant-numeric:tabular-nums}
+.lower{grid-template-columns:1.5fr 1fr}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--g10)}
+tbody tr[aria-selected="true"]{background:var(--g10);font-weight:700}
+tbody tr[aria-selected="true"] td:first-child{box-shadow:inset 4px 0 0 var(--red)}
+@media (max-width:900px){.controls,.main,.lower{grid-template-columns:1fr}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="band"></div>
+<div class="wrap">
+  <div class="org"><strong>Stadt Köln</strong><span>Amt für Landschaftspflege und Grünflächen | Urban Green Lab</span></div>
+  <header>
+    <p class="kicker">Experiment im Themenfeld Daten und Monitoring</p>
+    <h1>Grünflächen-Monitoring</h1>
+    <p class="lead">Wie hat sich das Grün in den Kölner Stadtbezirken verändert? Zwei Jahre wählen, Satellitenraster vergleichen und jeden Wert bis zur Datengrundlage zurückverfolgen.</p>
+  </header>
+  <p class="hint"><strong>Hinweis:</strong> Konzeptansicht mit simulierten Rasterdaten. Die Zahlen zeigen die Methode, nicht den tatsächlichen Zustand der Bezirke.</p>
+
+  <section class="panel controls" aria-label="Auswahl">
+    <div><label for="bz">Stadtbezirk</label><select id="bz"></select></div>
+    <div><label for="ya">Vergleichsjahr</label><select id="ya"></select></div>
+    <div><label for="yb">Aktuelles Jahr</label><select id="yb"></select></div>
+    <div><label id="ml">Ansicht</label><div class="seg" role="group" aria-labelledby="ml">
+      <button id="mSwipe" aria-pressed="true">Schieberegler</button><button id="mDiff" aria-pressed="false">Änderungen</button></div></div>
+  </section>
+
+  <div class="main">
+    <section class="panel">
+      <div class="mapbox" id="mapbox">
+        <canvas id="cA" width="48" height="30" aria-hidden="true"></canvas>
+        <canvas id="cB" width="48" height="30" aria-hidden="true"></canvas>
+        <div class="divider" id="div"></div>
+        <span class="yl" id="lA" style="left:8px"></span><span class="yl" id="lB" style="right:8px"></span>
+      </div>
+      <input type="range" id="swipe" min="0" max="100" value="50" aria-label="Vergleichsgrenze verschieben">
+      <div class="legend" id="leg"></div>
+    </section>
+    <section class="panel">
+      <h2 id="bzTitle"></h2>
+      <div class="kpis" id="kpis"></div>
+      <svg id="chart" viewBox="0 0 420 190" width="100%" role="img" aria-label="Grünanteil im Zeitverlauf"></svg>
+      <div id="note"></div>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="panel">
+      <h2>Alle Stadtbezirke im Vergleich</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Stadtbezirk</th><th class="num" id="thA"></th><th class="num" id="thB"></th><th class="num">Veränderung</th><th class="num">Fläche</th></tr></thead>
+        <tbody id="tbl"></tbody>
+      </table></div>
+    </section>
+    <section class="panel">
+      <h2>Datengrundlage der gewählten Jahre</h2>
+      <div class="prov" id="prov"></div>
+      <div class="method" style="margin-top:14px">
+        <p>Grundlage sind Sentinel-2-Aufnahmen (10&nbsp;m Auflösung). Pro Jahr wird ein wolkenbereinigter Sommer-Median (Juni bis August) gebildet und daraus der Vegetationsindex NDVI berechnet.</p>
+        <p>Als Grünfläche zählt ein Pixel mit NDVI über 0,4. So bleibt jede Zahl reproduzierbar: gleiche Szenen, gleiche Schwelle, gleiches Ergebnis.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const W=48,H=30,HA_PER_CELL=0.25,THR=0.4, YEARS=[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+const DROUGHT={2018:0.1,2019:0.07,2020:0.05,2022:0.09};
+const BZ=[
+ {name:'Innenstadt',base:.2,seed:11,loss:{x:30,y:8,w:8,h:6,from:2020}},
+ {name:'Rodenkirchen',base:.46,seed:23,loss:{x:6,y:18,w:7,h:6,from:2022}},
+ {name:'Lindenthal',base:.5,seed:37,gain:{x:20,y:4,w:6,h:5,from:2019}},
+ {name:'Ehrenfeld',base:.26,seed:41,loss:{x:2,y:2,w:22,h:16,from:2018}},
+ {name:'Nippes',base:.29,seed:53,loss:{x:34,y:18,w:7,h:6,from:2021},gain:{x:6,y:4,w:6,h:5,from:2023}},
+ {name:'Chorweiler',base:.44,seed:67,loss:{x:22,y:20,w:9,h:6,from:2023}},
+ {name:'Porz',base:.47,seed:71,loss:{x:26,y:6,w:12,h:9,from:2019}},
+ {name:'Kalk',base:.3,seed:83,gain:{x:16,y:12,w:10,h:8,from:2020}},
+ {name:'Mülheim',base:.38,seed:97,loss:{x:8,y:6,w:8,h:6,from:2022},gain:{x:30,y:16,w:8,h:7,from:2021}}
+];
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function field(seed,sc){const r=rng(seed),gw=Math.ceil(W/sc)+2,gh=Math.ceil(H/sc)+2,g=[...Array(gw*gh)].map(r),out=new Float32Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const fx=x/sc,fy=y/sc,ix=fx|0,iy=fy|0,tx=fx-ix,ty=fy-iy,s=t=>t*t*(3-2*t),
+    a=g[iy*gw+ix],b=g[iy*gw+ix+1],c=g[(iy+1)*gw+ix],d=g[(iy+1)*gw+ix+1];
+    out[y*W+x]=(a+(b-a)*s(tx))*(1-s(ty))+(c+(d-c)*s(tx))*s(ty);}return out;}
+const inR=(r,x,y)=>r&&x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h;
+function build(b){
+  const f1=field(b.seed,7),f2=field(b.seed+5,3),n=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){n[i]=f1[i]*.7+f2[i]*.3}
+  const sorted=[...n].sort((a,c)=>a-c),cut=sorted[Math.floor((1-b.base)*n.length)];
+  const vit=field(b.seed+9,2), out={};
+  for(const y of YEARS){
+    const r=rng(b.seed*y),a=new Float32Array(W*H);
+    for(let yy=0;yy<H;yy++)for(let x=0;x<W;x++){const i=yy*W+x;let green=n[i]>=cut;
+      if(inR(b.loss,x,yy)&&(x-b.loss.x)/b.loss.w < (y-b.loss.from+1)/3) green=false;
+      let young=0;
+      if(inR(b.gain,x,yy)&&y>=b.gain.from){green=true;young=Math.min(1,(y-b.gain.from+1)/3);}
+      const dr=DROUGHT[y]||0;
+      a[i]=green?(young?0.34+0.14*young+0.1*vit[i]:0.47+0.33*vit[i]-dr*(0.5+0.9*(1-vit[i]))):0.07+0.2*n[i];
+      a[i]+= (r()-.5)*0.03;}
+    out[y]=a;}
+  return out;
+}
+const DATA=BZ.map(build);
+const share=a=>{let c=0;for(const v of a)if(v>THR)c++;return c/a.length};
+const meanGreen=a=>{let s=0,c=0;for(const v of a)if(v>THR){s+=v;c++}return c?s/c:0};
+const stops=[[0,[217,212,199]],[.3,[243,233,198]],[.45,[181,211,138]],[.6,[122,182,72]],[.8,[0,110,52]]];
+function col(v){if(v<=stops[0][0])return stops[0][1];for(let i=1;i<stops.length;i++)if(v<=stops[i][0]){const[a,ca]=stops[i-1],[b,cb]=stops[i],t=(v-a)/(b-a);return ca.map((c,k)=>Math.round(c+(cb[k]-c)*t))}return stops.at(-1)[1]}
+function paint(cv,fn){const ctx=cv.getContext('2d'),img=ctx.createImageData(W,H);for(let i=0;i<W*H;i++){const[r,g,b]=fn(i);img.data.set([r,g,b,255],i*4)}ctx.putImageData(img,0,0)}
+const de=(n,d=1)=>n.toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const S={bz:3,a:2017,b:2025,mode:'swipe'};
+const $=id=>document.getElementById(id);
+
+BZ.forEach((b,i)=>$('bz').add(new Option(b.name,i)));
+YEARS.forEach(y=>{$('ya').add(new Option(y,y));$('yb').add(new Option(y,y))});
+$('bz').value=S.bz;$('ya').value=S.a;$('yb').value=S.b;
+$('bz').onchange=e=>{S.bz=+e.target.value;render()};
+$('ya').onchange=e=>{S.a=+e.target.value;render()};
+$('yb').onchange=e=>{S.b=+e.target.value;render()};
+$('mSwipe').onclick=()=>{S.mode='swipe';render()};
+$('mDiff').onclick=()=>{S.mode='diff';render()};
+$('swipe').oninput=e=>{$('cB').style.clipPath=`inset(0 0 0 ${e.target.value}%)`;$('div').style.left=e.target.value+'%'};
+
+function render(){
+  const d=DATA[S.bz],A=d[S.a],B=d[S.b],sa=share(A),sb=share(B),dpp=(sb-sa)*100,dha=(sb-sa)*W*H*HA_PER_CELL;
+  $('mSwipe').setAttribute('aria-pressed',S.mode==='swipe');$('mDiff').setAttribute('aria-pressed',S.mode==='diff');
+  const swipe=S.mode==='swipe';
+  ['cB','div','lA','lB','swipe'].forEach(id=>$(id).style.display=swipe?'':'none');
+  if(swipe){paint($('cA'),i=>col(A[i]));paint($('cB'),i=>col(B[i]));$('lA').textContent=S.a;$('lB').textContent=S.b;
+    $('leg').innerHTML=`<span>versiegelt<span class="ramp"></span>dichte Vegetation</span><span>Links ${S.a}, rechts ${S.b} – Regler verschieben</span>`;}
+  else{const dk=matchMedia('(prefers-color-scheme: dark)').matches;
+    paint($('cA'),i=>{const ga=A[i]>THR,gb=B[i]>THR;if(ga&&!gb)return[237,28,36];if(!ga&&gb)return[0,60,120];return ga?(dk?[40,72,50]:[205,228,190]):(dk?[45,45,45]:[240,240,240])});
+    $('leg').innerHTML=`<span><i class="sw" style="background:#ED1C24"></i>Grün verloren</span><span><i class="sw" style="background:#003C78"></i>Grün hinzugekommen</span><span><i class="sw" style="background:#CDE4BE"></i>unverändert grün</span>`;}
+  $('mapbox').setAttribute('aria-label',`Raster ${BZ[S.bz].name}`);
+  $('bzTitle').textContent=BZ[S.bz].name;
+  const cls=dpp<-0.05?'neg':dpp>0.05?'pos':'';
+  $('kpis').innerHTML=`<div class="kpi"><span>Grünanteil ${S.a}</span><strong>${de(sa*100)} %</strong></div>
+   <div class="kpi"><span>Grünanteil ${S.b}</span><strong>${de(sb*100)} %</strong></div>
+   <div class="kpi"><span>Veränderung</span><strong class="${cls}">${dpp>0?'+':''}${de(dpp)} pp</strong><em>${dha>0?'+':''}${de(dha)} ha</em></div>`;
+  // chart
+  const L=40,R=410,T=10,Bt=160,vals=YEARS.map(y=>share(d[y])*100),mn=Math.floor(Math.min(...vals)/5)*5-5,mx=Math.ceil(Math.max(...vals)/5)*5+5,
+    xs=i=>L+(R-L)*i/(YEARS.length-1),ys=v=>Bt-(Bt-T)*(v-mn)/(mx-mn);let g='';
+  YEARS.forEach((y,i)=>{if(DROUGHT[y])g+=`<rect x="${xs(i)-14}" y="${T}" width="28" height="${Bt-T}" fill="var(--beige)"><title>Trockenjahr</title></rect>`});
+  for(let v=mn;v<=mx;v+=5)g+=`<line x1="${L}" x2="${R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--g15)"/><text x="${L-6}" y="${ys(v)+4}" text-anchor="end">${v} %</text>`;
+  g+=`<polyline fill="none" stroke="var(--green)" stroke-width="2.5" points="${vals.map((v,i)=>xs(i)+','+ys(v)).join(' ')}"/>`;
+  YEARS.forEach((y,i)=>{const on=y===S.a||y===S.b;g+=`<circle cx="${xs(i)}" cy="${ys(vals[i])}" r="${on?5.5:3}" fill="${on?'var(--red)':'var(--green)'}"><title>${y}: ${de(vals[i])} %</title></circle><text x="${xs(i)}" y="${Bt+18}" text-anchor="middle">${String(y).slice(2)}</text>`});
+  $('chart').innerHTML=g;
+  const dry=[S.a,S.b].filter(y=>DROUGHT[y]);
+  $('note').innerHTML=(dry.length?`<p class="note">${dry.join(' und ')} ${dry.length>1?'waren Trockenjahre':'war ein Trockenjahr'} (gelb hinterlegt). Gestresste Vegetation hat einen niedrigeren NDVI – ein Teil der Veränderung kann Trockenstress sein und kein echter Flächenverlust. Zur Absicherung ein Jahr mit normaler Witterung wählen.</p>`:'')+
+    `<p class="note plain">Vitalität der Grünflächen (mittlerer NDVI): ${de(meanGreen(A),2)} → ${de(meanGreen(B),2)}</p>`;
+  // table
+  $('thA').textContent=S.a;$('thB').textContent=S.b;
+  $('tbl').innerHTML=BZ.map((b,i)=>{const a=share(DATA[i][S.a])*100,c=share(DATA[i][S.b])*100,dd=c-a,h=dd/100*W*H*HA_PER_CELL;
+    return `<tr data-i="${i}" tabindex="0" aria-selected="${i===S.bz}"><td>${b.name}</td><td class="num">${de(a)} %</td><td class="num">${de(c)} %</td><td class="num ${dd<-0.05?'neg':dd>0.05?'pos':''}">${dd>0?'+':''}${de(dd)} pp</td><td class="num">${h>0?'+':''}${de(h)} ha</td></tr>`}).join('');
+  $('tbl').querySelectorAll('tr').forEach(tr=>{const go=()=>{S.bz=+tr.dataset.i;$('bz').value=S.bz;render()};tr.onclick=go;tr.onkeydown=e=>{if(e.key==='Enter')go()}});
+  // provenance
+  const pv=y=>{const r=rng(y*7+S.bz);return{sc:3+Math.floor(r()*5),cl:Math.round(4+r()*20)}};const pa=pv(S.a),pb=pv(S.b);
+  $('prov').innerHTML=`<dl><dt>Sensor</dt><dd>Sentinel-2 L2A, 10 m</dd>
+   <dt>Zeitraum ${S.a}</dt><dd>Jun–Aug, ${pa.sc} Szenen, ${pa.cl} % Wolken maskiert</dd>
+   <dt>Zeitraum ${S.b}</dt><dd>Jun–Aug, ${pb.sc} Szenen, ${pb.cl} % Wolken maskiert</dd>
+   <dt>Grün-Schwelle</dt><dd>NDVI &gt; 0,4</dd><dt>Rasterzelle (Demo)</dt><dd>50 × 50 m = 0,25 ha</dd></dl>`;
+}
+render();
+</script>
+</body>
+</html>
