@@ -7,11 +7,13 @@ window.GreenLabs = (() => {
       summary: "CoolRoutes Cologne bewertet Wege anhand modellierter Hitze, Schatten, Grün, Wasser und Wind. Persönliche Präferenzen, verschiedene Profile und mehrere Kartenebenen machen klimatisch angenehmere Routen direkt vergleichbar.",
       features: [["route", "Kühlere Routen"], ["sprout", "Schatten und Stadtgrün"], ["water", "Wasser und Wetter"]] },
     { id: "watering", title: "Smart Watering Pilot", category: "Wasser", icon: "water", image: "Images/labs/smart-watering-960.webp",
-      description: "Konzeptansicht für Bewässerungsbedarf aus Wetter-, Standort- und Vegetationsdaten." },
+      description: "Konzeptansicht für Bewässerungsbedarf aus Wetter-, Standort- und Vegetationsdaten.",
+      features: [["water", "Wasserbilanz je Standort"], ["sun", "7-Tage-Wetterprognose"], ["route", "Vorschlag für Gießtour"]] },
     { id: "fountains", title: "Brunnen 3D", category: "Wasser", icon: "cube", image: "Images/labs/brunnen-im-dau-960.webp",
       description: "Erkundet den historischen Brunnen Im Dau in der Kölner Altstadt-Süd als 3D-Modell." },
     { id: "monitoring", title: "Grünflächen-Monitoring", category: "Daten & Monitoring", icon: "chart", image: "Images/labs/gruenflaechen-monitoring-960.webp",
-      description: "Vorschau auf nachvollziehbare Zeitvergleiche von Grünflächen." },
+      description: "Vorschau auf nachvollziehbare Zeitvergleiche von Grünflächen.",
+      features: [["chart", "NDVI-Zeitvergleich"], ["map", "Rasterbasierte Auswertung"], ["layers", "Filterbare Zeiträume"]] },
     { id: "urban-trees", title: "Cologne Urban Tree Atlas", category: "Daten & Monitoring", icon: "tree", image: "Images/labs/cologne-urban-tree-atlas-960.webp", badge: "Beitrag",
       url: "https://glistening-wisp-367b6e.netlify.app/", subtitle: "Interaktive Baumalterkarte · Bewässerungsmonitor", heading: "Kölns Stadtbäume datenbasiert erkunden",
       description: "Interaktive Baumalterkarte mit Filtern, Datenqualität und Bewässerungsmonitor für Köln.",
@@ -49,7 +51,7 @@ window.GreenLabs = (() => {
   const cardAction = (lab) => lab.project ? "Vorhaben ansehen" : lab.url ? "Beitrag ansehen" : lab.id === "fountains" ? "Öffnen" : "Vorschau";
 
   function card(lab) {
-    return `<article class="lab-card${active === lab.id ? " active" : ""}">
+    return `<article class="lab-card${active === lab.id ? " active" : ""}${lab.project ? " lab-card-featured" : ""}">
       <div class="lab-card-visual lab-${lab.id}"><img src="${esc(lab.image)}" alt="" width="960" height="540" loading="lazy" decoding="async"><span>${esc(lab.badge || "Experiment")}</span><b>${icon(lab.icon)}</b></div>
       <div class="lab-card-body"><span class="lab-tag">${esc(lab.category)}</span><h3>${esc(lab.title)}</h3>
       <p>${esc(lab.description)}</p><button data-open-lab="${lab.id}" class="lab-open">${cardAction(lab)}${icon("arrow")}</button></div>
@@ -70,7 +72,9 @@ window.GreenLabs = (() => {
     const preview = interactiveFile
       ? `<iframe class="lab-interactive-preview" src="labs/${interactiveFile}" title="${esc(lab.title)} – interaktive Vorschau" loading="lazy"></iframe>`
       : `<div class="preview-hero lab-${lab.id}">${icon(lab.icon)}</div>`;
-    return `<div class="lab-detail-head"><span>${icon(lab.icon)}</span><div><span class="beta">VORSCHAU</span><h2>${esc(lab.title)}</h2><p>${esc(lab.category)}</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div><div class="lab-detail-body">${preview}<h3>${details[0]}</h3><p>${details[1]}</p><div class="preview-state"><strong>Noch kein Live-Betrieb</strong><span>Diese Ansicht zeigt das geplante Nutzungskonzept mit vorhandenen Kölner Gründaten.</span></div><a class="secondary-button lab-feedback" href="https://www.stadt-koeln.de/service/adressen/amt-fuer-landschaftspflege-und-gruenflaechen" target="_blank" rel="noopener noreferrer">Kontakt & Feedback</a></div>`;
+    const features = lab.features?.length ? `<div class="external-lab-features">${lab.features.map(([featureIcon, label]) => `<span>${icon(featureIcon)}${esc(label)}</span>`).join("")}</div>` : "";
+    const openFull = interactiveFile ? `<a class="primary-button" href="labs/${interactiveFile}" target="_blank" rel="noopener noreferrer">${icon("arrow")}Interaktive Vorschau öffnen</a>` : "";
+    return `<div class="lab-detail-head"><span>${icon(lab.icon)}</span><div><span class="beta">VORSCHAU</span><h2>${esc(lab.title)}</h2><p>${esc(lab.category)}</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div><div class="lab-detail-body">${preview}<h3>${details[0]}</h3><p>${details[1]}</p>${features}<div class="preview-state"><strong>Noch kein Live-Betrieb</strong><span>Diese Ansicht zeigt das geplante Nutzungskonzept mit vorhandenen Kölner Gründaten.</span></div>${openFull}<a class="secondary-button lab-feedback" href="https://www.stadt-koeln.de/service/adressen/amt-fuer-landschaftspflege-und-gruenflaechen" target="_blank" rel="noopener noreferrer">Kontakt & Feedback</a></div>`;
   }
   function fountainPanel() {
     return `<div class="lab-detail-head"><span>${icon("cube")}</span><div><span class="beta">3D</span><h2>Brunnen Im Dau</h2><p>Im Dau 9 · Altstadt-Süd · nahe Severinstraße</p></div><button data-close-labs aria-label="Labs schließen">${icon("close")}</button></div>
