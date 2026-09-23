@@ -33,7 +33,7 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
   }
   addInitialMessage() {
     this.addMessage(
-      `Was möchtest du über das Kölner Grün wissen? Ich kann Kartenebenen steuern, ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} filtern, Kartenausschnitte analysieren, Stadtteile vergleichen und Orte in der Nähe eines bekannten Orts zeigen. Anschlussfragen wie „und davon nur Kirschen“ funktionieren ebenfalls.`,
+      `Was möchtest du über das Kölner Grün wissen? Ich kann Kartenebenen steuern, ${GreenData.dataMode === "osm" ? "OSM-Orte" : "Demo-Orte"} filtern, Grünraumversorgung, Pflegemeldungen und Baumstrukturen analysieren, Stadtteile vergleichen und Orte in der Nähe eines bekannten Orts zeigen.`,
       "ai"
     );
   }
@@ -47,6 +47,9 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       ["tree", "Die ältesten Bäume hier"],
       ["report", "Grünmeldungen anzeigen"],
       ["map", "Geoanalyse im Kartenausschnitt"],
+      ["map", "Pflegelage im Kartenausschnitt"],
+      ["tree", "Baumstruktur im Kartenausschnitt"],
+      ["park", "Grünraum-Versorgungscheck in meiner Nähe"],
       ["water", "Nur Parks und Brunnen anzeigen"],
     ];
     const prompts = theme

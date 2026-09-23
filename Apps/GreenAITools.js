@@ -21,6 +21,9 @@ window.GreenAITools = (() => {
     "set_layers",
     "spatial_analysis",
     "compare_areas",
+    "green_access_analysis",
+    "maintenance_analysis",
+    "tree_structure_analysis",
     "open_coolroutes",
   ];
   // Route calculation stays inside the dedicated, server-backed CoolRoutes workflow.
@@ -304,6 +307,29 @@ window.GreenAITools = (() => {
           if (action.districts[0] === action.districts[1]) fail("Bitte nenne zwei unterschiedliche Stadtteile.");
           break;
         }
+        case "green_access_analysis":
+          action.themes = raw.themes === undefined ? ["parks", "gardens", "play", "water"] : themeList(raw.themes);
+          action.radius_m = int(raw.radius_m, MIN_RADIUS, MAX_RADIUS, 1000);
+          action.origin = raw.origin === undefined ? "user" : ["user", "selected", "object"].includes(raw.origin) ? raw.origin : fail("Ungültiger Ausgangspunkt.");
+          if (action.origin === "object") {
+            action.object_id = str(raw.object_id, 80);
+            if (!findFeature(action.object_id)) fail("Diesen Ausgangsort kenne ich nicht.");
+          }
+          action.show_layers = raw.show_layers !== false;
+          break;
+        case "maintenance_analysis":
+          action.scope = raw.scope === undefined ? "viewport" : SCOPES.includes(raw.scope) ? raw.scope : fail("Ungültiger Bereich.");
+          action.status = raw.status === undefined ? "open" : STATUSES.includes(raw.status) ? raw.status : fail("Ungültiger Status.");
+          if (raw.category !== undefined) Object.assign(action, reportParams({ category: raw.category }));
+          action.show_layer = raw.show_layer !== false;
+          break;
+        case "tree_structure_analysis":
+          action.scope = raw.scope === undefined ? "viewport" : SCOPES.includes(raw.scope) ? raw.scope : fail("Ungültiger Bereich.");
+          if (raw.district !== undefined) {
+            action.district = resolveDistrictParam(raw.district);
+            action.scope = "all_loaded";
+          }
+          break;
         case "find_nearby":
           action.theme = themeParam(raw.theme);
           action.radius_m = int(raw.radius_m, MIN_RADIUS, MAX_RADIUS, 1000);
@@ -521,6 +547,24 @@ window.GreenAITools = (() => {
     return { center: { lon: location.lon, lat: location.lat }, name: "deinen Standort" };
   }
 
+  const CARE_TOPICS = [
+    ["Baumkontrolle & Äste", /baum|ast|krone|stamm|umgesturzt|standfest/],
+    ["Rückschnitt & Bewuchs", /ruckschnitt|schneid|hecke|gebusch|bewuchs|zugewachsen|grunzeug/],
+    ["Sauberkeit & Abfall", /mull|abfall|ratte|verschmutz|unrat/],
+    ["Wege & Verkehrssicherheit", /weg|gehweg|radweg|stolper|gefahr|verkehrssicher/],
+    ["Spiel- und Freizeitanlagen", /spiel|bolz|gerat|schaukel|rutsche|kletter/],
+  ];
+  function careTopic(report) {
+    const text = norm(`${report.category} ${report.description}`);
+    return CARE_TOPICS.find(([, pattern]) => pattern.test(text))?.[0] || "Sonstige Grünpflege";
+  }
+  const median = (values) => {
+    if (!values.length) return null;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+
   const runners = {
     show_theme(action) {
       const theme = data().theme(action.theme);
@@ -722,6 +766,77 @@ window.GreenAITools = (() => {
         ].join("\n"),
       };
     },
+    green_access_analysis(action) {
+      const origin = nearbyOrigin(action);
+      if (!origin.center) return { kind: "query", message: origin.message };
+      if (action.show_layers) for (const theme of action.themes) atlas().setThemeVisible(theme, true);
+      const rows = action.themes.map((theme) => ({
+        theme,
+        result: gather({ themeId: theme, area: { center: origin.center, radiusM: action.radius_m }, keep: 1, center: origin.center }),
+      }));
+      return {
+        kind: "query",
+        message: [
+          `Grünraum-Versorgungscheck im Umkreis von ${distanceText(action.radius_m)} um ${origin.name}:`,
+          ...rows.map(({ theme, result }) => {
+            const nearest = result.items[0];
+            return `• ${data().theme(theme).name}: ${number(result.total)} erfasst${nearest ? `; nächster Eintrag ${nearest.feature.properties.name} in ${distanceText(nearest.distance)}` : "; kein Eintrag im geladenen Datensatz"}.`;
+          }),
+          sourceNote(),
+          "Der Check nutzt Luftlinien und erfasste Punktobjekte; Zugänge, Barrieren, Flächengrößen und tatsächliche Versorgungsqualität sind nicht bewertet.",
+        ].join("\n"),
+      };
+    },
+    async maintenance_analysis(action) {
+      await loadedReports();
+      const bounds = action.scope === "viewport" ? viewportBounds() : null;
+      const rows = reportRows(action, bounds);
+      const topics = new Map();
+      for (const report of rows) {
+        const topic = careTopic(report);
+        topics.set(topic, (topics.get(topic) || 0) + 1);
+      }
+      if (action.show_layer) await atlas().setReports({ visible: true, status: action.status, category: action.category || "all" });
+      const ranked = [...topics].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "de"));
+      return {
+        kind: "query",
+        message: [
+          `Pflege- und Meldungslage ${scopeText(action.scope)}: ${number(rows.length)} ${action.status === "all" ? "erfasste" : STATUS_ADJECTIVE[action.status]} Grünmeldungen.`,
+          ...ranked.map(([topic, count]) => `• ${topic}: ${number(count)}`),
+          reportSource(),
+          "Die Themen werden aus Meldungstexten regelbasiert zugeordnet. Sie sind Hinweise für die Sichtung, keine fachliche Priorisierung oder Arbeitsanweisung.",
+        ].join("\n"),
+      };
+    },
+    tree_structure_analysis(action) {
+      const bounds = action.scope === "viewport" ? viewportBounds() : null;
+      const heights = [], crowns = [];
+      let total = 0, young = 0, established = 0, old = 0, withoutYear = 0;
+      const currentYear = new Date().getFullYear();
+      trees().forEachRow((row) => {
+        if (bounds && !inBox(bounds, row[1], row[2])) return;
+        if (action.district && norm(row[6]) !== norm(action.district)) return;
+        total++;
+        const year = Number(row[7]);
+        if (Number.isFinite(year) && year >= 1700 && year <= currentYear) {
+          const age = currentYear - year;
+          if (age < 20) young++; else if (age < 60) established++; else old++;
+        } else withoutYear++;
+        if (Number(row[9]) > 0) heights.push(Number(row[9]));
+        if (Number(row[10]) > 0) crowns.push(Number(row[10]));
+      });
+      const place = action.district ? `in ${action.district}` : scopeText(action.scope);
+      return {
+        kind: "query",
+        message: [
+          `Baumstruktur-Check ${place}: ${number(total)} betreute Einzelbäume im Kataster.`,
+          `• Pflanzalter aus erfasstem Pflanzjahr: ${number(young)} unter 20 Jahre, ${number(established)} 20 bis 59 Jahre, ${number(old)} mindestens 60 Jahre; ${number(withoutYear)} ohne auswertbares Pflanzjahr.`,
+          `• Erfasste Höhe: ${number(heights.length)} Werte${heights.length ? `, Median ${number(median(heights))} m` : ""}.`,
+          `• Erfasster Kronendurchmesser: ${number(crowns.length)} Werte${crowns.length ? `, Median ${number(median(crowns))} m` : ""}.`,
+          "Quelle: Baumkataster Stadt Köln; Angaben können fehlen. Altersklassen beschreiben die Bestandsstruktur und sind keine Aussage zum Pflegezustand oder zur Verkehrssicherheit.",
+        ].join("\n"),
+      };
+    },
     open_coolroutes() {
       atlas().activateAppView("labs");
       return { kind: "map", message: "Ich öffne Coolrouten Köln. Wähle dort Start und Ziel; Entfernungen und Kennzahlen werden erst aus dem Routingdienst und den geladenen Gründaten berechnet." };
@@ -877,6 +992,17 @@ window.GreenAITools = (() => {
     if (/vergleich|vergleiche|gegenuber/.test(q) && mentionedDistricts.length >= 2) {
       return { action: { type: "compare_areas", districts: mentionedDistricts.slice(0, 2), ...(theme && { theme }) } };
     }
+    if (/versorgungscheck|grunraum.*check|grunangebot|grunversorgung/.test(q)) {
+      const origin = /diese[mnrs]? (ort|punkt)|von hier/.test(q) ? "selected" : "user";
+      return { action: { type: "green_access_analysis", radius_m: detectRadius(q) ?? 1000, origin } };
+    }
+    if (/baumstruktur|altersstruktur|bestandsstruktur.*baum/.test(q)) {
+      return { action: { type: "tree_structure_analysis", scope: district ? "all_loaded" : scope, ...(district && { district }) } };
+    }
+    if (/pflegeanalyse|pflegelage|landschaftspflege|pflegebedarf|grunpflege/.test(q)) {
+      const status = /alle|gesamt/.test(q) ? "all" : /bearbeitung/.test(q) ? "in_progress" : /abgeschlossen|erledigt/.test(q) ? "closed" : "open";
+      return { action: { type: "maintenance_analysis", scope, status, show_layer: true } };
+    }
     if (/geoanalyse|analysier|raumlich.*auswert|werte.*ausschnitt.*aus/.test(q)) {
       return { action: { type: "spatial_analysis", scope, ...(theme && { theme }), ...(district && { district }) } };
     }
@@ -1029,6 +1155,9 @@ window.GreenAITools = (() => {
       '{"type":"spatial_analysis","theme":ID,"scope":"viewport|all_loaded","district":"Stadtteil","show_layer":true}  (theme und district optional)',
       '{"type":"compare_areas","districts":["Stadtteil 1","Stadtteil 2"],"theme":ID}  (theme optional; districts MUSS EXAKT zwei verschiedene bekannte Stadtteile enthalten)',
       "Für eine allgemeine Empfehlung zur Analyse nach Stadtteilen ohne zwei vom Nutzer genannte Stadtteile verwendest du rank_districts, niemals compare_areas.",
+      '{"type":"green_access_analysis","themes":["parks","gardens","play","water"],"radius_m":1000,"origin":"user|selected|object","object_id":"ID","show_layers":true}  (Grünraum-Angebot per Luftlinie)',
+      '{"type":"maintenance_analysis","scope":"viewport|all_loaded","status":"all|open|in_progress|closed","category":"Service-Code","show_layer":true}  (Meldungstexte regelbasiert nach Pflegethemen auswerten)',
+      '{"type":"tree_structure_analysis","scope":"viewport|all_loaded","district":"Stadtteil"}  (Altersklassen sowie vorhandene Höhen- und Kronenwerte; kein Pflegezustand)',
       '{"type":"open_coolroutes"}  (öffnet nur die Routingoberfläche; keine erfundenen Routenwerte)',
       'count_features und list_features akzeptieren optional "district":"Stadtteil"; find_nearby akzeptiert "origin":"object" mit "object_id" aus dem Kontext.',
       'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
