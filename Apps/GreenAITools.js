@@ -237,6 +237,8 @@ window.GreenAITools = (() => {
           break;
         case "filter_features": {
           action.theme = themeParam(raw.theme ?? "trees");
+          if (raw.zoom_results !== undefined && typeof raw.zoom_results !== "boolean") fail("Ungültiger Parameter zoom_results.");
+          action.zoom_results = raw.zoom_results !== false;
           if (raw.clear !== undefined) {
             if (typeof raw.clear !== "boolean") fail("Ungültiger Parameter clear.");
             action.clear = raw.clear;
@@ -624,16 +626,18 @@ window.GreenAITools = (() => {
       if (spec) {
         map0.setTreeFilter({ row: spec.row, feature: spec.feature, label: spec.label });
         const inView = gather({ themeId: "trees", area: areaFor("viewport"), tree: spec });
-        const total = gather({ themeId: "trees", tree: spec });
-        const zoomed = trees().ready && map0.cameraHeight() > TREE_RENDER_HEIGHT;
-        if (zoomed) map0.flyToView(TREE_ZOOM_HEIGHT);
+        const total = gather({ themeId: "trees", tree: spec,
+          ...(action.zoom_results && { center: boxCenter(viewportBounds()), keep: 1 }) });
+        const nearest = action.zoom_results ? total.items[0] : null;
+        if (nearest) map0.focus(nearest.feature.id);
+        else if (trees().ready && map0.cameraHeight() > TREE_RENDER_HEIGHT) map0.flyToView(TREE_ZOOM_HEIGHT);
         return {
           kind: "map",
           message: joinParts(
             `Auf der Karte werden nur noch ${spec.label} gezeigt.`,
             `Im bisherigen Kartenausschnitt: ${number(inView.total)}, im geladenen Datensatz insgesamt: ${number(total.total)}.`,
             spec.edible && total.nameOnly ? `${number(total.nameOnly)} davon sind nur über den Katasternamen zugeordnet (Art nicht näher bestimmt).` : "",
-            zoomed ? "Ich habe näher herangezoomt, damit einzelne Bäume sichtbar werden." : "",
+            nearest ? `Die Karte zoomt zum nächstgelegenen Treffer „${nearest.feature.properties.name}“. Weitere passende Marker in der Umgebung sind anklickbar.` : "",
             sourceNote("trees"), spec.edible ? EDIBLE_NOTE : ""),
         };
       }
@@ -1068,6 +1072,9 @@ window.GreenAITools = (() => {
         },
       };
     }
+    if (target === "trees" && edible && /zeig|karte|markier|hervorheb/.test(q)) {
+      return { action: { type: "filter_features", theme: "trees", ...tree, zoom_results: true } };
+    }
     if (count) return { action: { type: "count_features", theme: target, scope: district ? "all_loaded" : scope, ...tree, ...(district && { district }) } };
     if (list || district) {
       const groupBy = target === "trees" && /baumart|\barten\b|sorten|welche arten/.test(q) ? { group_by: "species" } : {};
@@ -1142,7 +1149,7 @@ window.GreenAITools = (() => {
       '{"type":"show_theme","theme":ID}  {"type":"hide_theme","theme":ID}  {"type":"zoom_to_theme","theme":ID}',
       '{"type":"show_object","id":ID}  {"type":"zoom_to_object","id":ID}  (nur IDs aus dem Kontext)',
       '{"type":"search_features","query":"Text","theme":ID,"limit":10}  (theme optional)',
-      '{"type":"filter_features","theme":"trees","edible":true,"edible_category":"fruit|nut","species":"Apfel"}  oder  {"type":"filter_features","theme":ID,"filters":{"kind":"Wert"}}  oder  {"type":"filter_features","theme":ID,"clear":true}',
+      '{"type":"filter_features","theme":"trees","edible":true,"edible_category":"fruit|nut","species":"Apfel","zoom_results":true}  oder  {"type":"filter_features","theme":ID,"filters":{"kind":"Wert"}}  oder  {"type":"filter_features","theme":ID,"clear":true}',
       '{"type":"count_features","theme":ID|"reports","scope":"viewport|all_loaded","edible":true,"species":"Walnuss","status":"open|in_progress|closed"}  (alles außer type optional)',
       '{"type":"list_features","theme":ID|"reports","scope":"viewport|all_loaded","limit":10,"group_by":"species"}  (group_by nur bei trees)',
       '{"type":"find_nearby","theme":ID,"radius_m":1000,"origin":"user|selected","limit":5,"edible":true}  (radius 50-10000)',
