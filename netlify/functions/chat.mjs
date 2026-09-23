@@ -19,7 +19,7 @@ const FALLBACK_MODELS = [
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
 ];
-const MAX_OUTPUT_TOKENS = 400;
+const MAX_OUTPUT_TOKENS = 600;
 const MAX_REQUEST_BYTES = 32000;
 // Netlify synchronous functions time out at 10s; abort upstream a bit earlier
 // so the browser gets a clean JSON error instead of a platform 502.
@@ -119,7 +119,8 @@ export default async (req, context) => {
         body: JSON.stringify({
           model: model,
           messages: messages,
-          max_tokens: MAX_OUTPUT_TOKENS,
+          max_completion_tokens: MAX_OUTPUT_TOKENS,
+          reasoning_effort: "none",
           temperature: 0.4,
         }),
       });
@@ -136,12 +137,17 @@ export default async (req, context) => {
       }
 
       const data = await upstream.json();
+      const choice = data && data.choices && data.choices[0];
       const reply =
-        data && data.choices && data.choices[0] && data.choices[0].message
-          ? data.choices[0].message.content
+        choice && choice.message
+          ? choice.message.content
           : null;
-      if (typeof reply !== "string" || reply.trim().length === 0) {
-        continue; // empty answer — try the next model
+      if (
+        typeof reply !== "string" ||
+        reply.trim().length === 0 ||
+        choice.finish_reason === "length"
+      ) {
+        continue; // empty or incomplete answer — try the next model
       }
 
       return jsonResponse(200, { reply: reply });

@@ -303,7 +303,7 @@ async function generateDevelopmentBuild() {
       "google/gemma-4-26b-a4b-it:free",
       "nvidia/nemotron-3-super-120b-a12b:free",
     ],
-    maxOutputTokens: 400,
+    maxOutputTokens: 600,
     upstreamTimeoutMs: 15000,
     minAttemptBudgetMs: 2000,
   };
@@ -363,7 +363,8 @@ async function generateDevelopmentBuild() {
             body: JSON.stringify({
               model: model,
               messages: messages,
-              max_tokens: chatProxyConfig.maxOutputTokens,
+              max_completion_tokens: chatProxyConfig.maxOutputTokens,
+              reasoning_effort: "none",
               temperature: 0.4,
             }),
           }
@@ -390,12 +391,17 @@ async function generateDevelopmentBuild() {
         }
 
         const data = await upstream.json();
+        const choice = data && data.choices && data.choices[0];
         const reply =
-          data && data.choices && data.choices[0] && data.choices[0].message
-            ? data.choices[0].message.content
+          choice && choice.message
+            ? choice.message.content
             : null;
-        if (typeof reply !== "string" || reply.trim().length === 0) {
-          continue; // empty answer — try the next model
+        if (
+          typeof reply !== "string" ||
+          reply.trim().length === 0 ||
+          choice.finish_reason === "length"
+        ) {
+          continue; // empty or incomplete answer — try the next model
         }
 
         return res.json({ reply: reply });
