@@ -299,8 +299,8 @@ window.GreenAITools = (() => {
           break;
         case "compare_areas": {
           action.theme = themeParam(raw.theme, { required: false });
-          if (!Array.isArray(raw.districts) || raw.districts.length !== 2) fail("Für den Vergleich brauche ich genau zwei Stadtteile.");
-          action.districts = raw.districts.map(resolveDistrictParam);
+          if (!Array.isArray(raw.districts) || raw.districts.length < 2) fail("Für den Vergleich brauche ich genau zwei Stadtteile.");
+          action.districts = raw.districts.slice(0, 2).map(resolveDistrictParam);
           if (action.districts[0] === action.districts[1]) fail("Bitte nenne zwei unterschiedliche Stadtteile.");
           break;
         }
