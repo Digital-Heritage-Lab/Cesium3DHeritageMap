@@ -72,9 +72,11 @@ window.GreenAtlas = (() => {
     viewOnly = false,
     reportLoading = false,
     reportError = false,
+    resumeAIFromObject = false,
     userLocation = null; // kept in memory only; never persisted or sent to the language model
   const panel = () => $("contentPanel");
   const isMobile = () => matchMedia("(max-width:760px)").matches;
+  const panelsNeedExclusiveSpace = () => matchMedia("(max-width:1280px)").matches;
   const isRealData = () => GreenData.dataMode === "osm";
   const dataLabel = () => isRealData() ? "OSM-Orte" : "Demo-Orte";
   const themeTotal = (id) => GreenData.search("", id).length + (id === "trees" ? GreenTrees.count : 0);
@@ -326,6 +328,13 @@ window.GreenAtlas = (() => {
     panel().hidden = true;
     if (lastTrigger?.isConnected) lastTrigger.focus();
   }
+  function prepareObjectPanel() {
+    const aiWasOpen = Boolean(ai && !ai.chatPanel.hidden);
+    resumeAIFromObject = aiWasOpen && panelsNeedExclusiveSpace();
+    if (resumeAIFromObject) closeAI();
+    document.body.classList.toggle("dual-map-panels", aiWasOpen && !panelsNeedExclusiveSpace());
+    if (panelsNeedExclusiveSpace()) panel().hidden = true;
+  }
   function showObject(id, fly = true) {
     if (id.startsWith('report-')) return showReport(id, fly);
     const f = GreenData.collection.features.find((item) => item.id === id) || GreenTrees.get(id);
@@ -333,6 +342,7 @@ window.GreenAtlas = (() => {
     lastTrigger = document.activeElement;
     if (fly) map.focus(id);
     map.select(id);
+    prepareObjectPanel();
     if (activeTheme && !panel().hidden) renderTheme(activeTheme);
     const p = f.properties,
       t = GreenData.theme(p.theme),
@@ -382,7 +392,7 @@ window.GreenAtlas = (() => {
       id
     )}" aria-pressed="${favorites.has(id)}">${icon("heart")}${
       favorites.has(id) ? "Gemerkt" : "Merken"
-    }</button><a class="secondary-button" href="https://courageous-pudding-391ff7.netlify.app/" target="_blank" rel="noopener noreferrer">${icon("route")}CoolRoutes öffnen</a></div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
+    }</button><a class="secondary-button" href="https://courageous-pudding-391ff7.netlify.app/" target="_blank" rel="noopener noreferrer">${icon("route")}CoolRoutes öffnen</a>${resumeAIFromObject ? `<button class="secondary-button object-resume-ai" data-action="resume-ai">${icon("sparkles")}Zurück zu GrünAI</button>` : ""}</div><details><summary>Details & Datenherkunft</summary><p>Objekt-ID: ${escape(
       id
     )}<br>${escape(
       p.source
@@ -393,10 +403,6 @@ window.GreenAtlas = (() => {
       object.querySelector(".photo-depiction").textContent = "Darstellung: schematische Illustration, kein Ortsfoto.";
     });
     object.hidden = false;
-    if (isMobile()) {
-      panel().hidden = true;
-      closeAI();
-    }
     hideSearch();
     object.querySelector("button").focus();
     updateContext();
@@ -407,6 +413,7 @@ window.GreenAtlas = (() => {
     lastTrigger = document.activeElement;
     if (fly) map.focusReport(report);
     map.select(id);
+    prepareObjectPanel();
     const object = $('objectPanel');
     object.innerHTML = `<div class="object-visual">${art()}<button class="icon-button" data-action="close-object" aria-label="Ortdetails schließen">${icon('close')}</button></div><div class="object-body"></div>`;
     const body = object.querySelector('.object-body');
@@ -443,6 +450,13 @@ window.GreenAtlas = (() => {
       link.className = 'secondary-button'; link.href = report.sourceUrl;
       link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Meldung öffnen ↗';
       actions.appendChild(link);
+    }
+    if (resumeAIFromObject) {
+      const resume = document.createElement('button');
+      resume.className = 'secondary-button object-resume-ai';
+      resume.dataset.action = 'resume-ai';
+      resume.innerHTML = `${icon('sparkles')}Zurück zu GrünAI`;
+      actions.appendChild(resume);
     }
     body.appendChild(actions);
     if (report.imageUrl && /^https:\/\/sags-uns\.stadt-koeln\.de\/system\/files\//.test(report.imageUrl)) {
@@ -630,9 +644,13 @@ window.GreenAtlas = (() => {
     if (!ai) ai = new GreenAI(map.viewer);
     hideSearch();
     setMobileNav("ai");
-    if (isMobile()) {
+    if (panelsNeedExclusiveSpace()) {
       panel().hidden = true;
       $("objectPanel").hidden = true;
+      document.body.classList.remove("dual-map-panels");
+      resumeAIFromObject = false;
+    } else if (!$("objectPanel").hidden) {
+      document.body.classList.add("dual-map-panels");
     }
     ai.chatPanel.hidden = false;
     $("greenAIButton").setAttribute("aria-expanded", "true");
@@ -640,6 +658,7 @@ window.GreenAtlas = (() => {
   }
   function closeAI() {
     if (ai) ai.chatPanel.hidden = true;
+    document.body.classList.remove("dual-map-panels");
     $("greenAIButton").setAttribute("aria-expanded", "false");
   }
   // Deterministic, network-free intent handling; resolves to a reply text or null when a language model is needed.
@@ -786,7 +805,15 @@ window.GreenAtlas = (() => {
       if (button.dataset.action === "close-panel") closePanel();
       if (button.dataset.action === "close-object") {
         $("objectPanel").hidden = true;
+        document.body.classList.remove("dual-map-panels");
+        resumeAIFromObject = false;
         if (lastTrigger?.isConnected) lastTrigger.focus();
+      }
+      if (button.dataset.action === "resume-ai") {
+        $("objectPanel").hidden = true;
+        document.body.classList.remove("dual-map-panels");
+        resumeAIFromObject = false;
+        openAI();
       }
       if (button.dataset.action === "view-results") {
         viewOnly = !viewOnly;
