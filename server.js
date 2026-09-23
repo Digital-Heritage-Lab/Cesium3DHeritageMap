@@ -310,7 +310,7 @@ async function generateDevelopmentBuild() {
 
   const allowChatRequest = createRateLimiter();
 
-  app.post("/api/chat", express.json({ limit: "64kb" }), async function (
+  app.post("/api/chat", express.json({ limit: "32kb" }), async function (
     req,
     res
   ) {

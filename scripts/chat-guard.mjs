@@ -5,6 +5,8 @@
 export const MAX_MESSAGES = 24;
 export const MAX_TOTAL_CHARS = 24000;
 export const MAX_SYSTEM_CHARS = 8000;
+export const MAX_USER_CHARS = 2000;
+export const MAX_ASSISTANT_CHARS = 4000;
 
 // Accept only plain {role, content} text messages. A single system message is
 // allowed, and only as the first entry, because both chat UIs build their own
@@ -20,6 +22,10 @@ export function sanitizeMessages(raw) {
     if (entry.role === "system") {
       if (index !== 0 || entry.content.length > MAX_SYSTEM_CHARS) return null;
     } else if (entry.role !== "user" && entry.role !== "assistant") {
+      return null;
+    } else if (entry.role === "user" && entry.content.length > MAX_USER_CHARS) {
+      return null;
+    } else if (entry.role === "assistant" && entry.content.length > MAX_ASSISTANT_CHARS) {
       return null;
     }
     totalChars += entry.content.length;

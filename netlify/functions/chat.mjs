@@ -20,6 +20,7 @@ const FALLBACK_MODELS = [
   "nvidia/nemotron-3-super-120b-a12b:free",
 ];
 const MAX_OUTPUT_TOKENS = 400;
+const MAX_REQUEST_BYTES = 32000;
 // Netlify synchronous functions time out at 10s; abort upstream a bit earlier
 // so the browser gets a clean JSON error instead of a platform 502.
 const UPSTREAM_TIMEOUT_MS = 9000;
@@ -70,7 +71,15 @@ export default async (req, context) => {
 
   let body;
   try {
-    body = await req.json();
+    const declaredLength = Number(req.headers.get("content-length") || 0);
+    if (declaredLength > MAX_REQUEST_BYTES) {
+      return jsonResponse(413, { error: "request_too_large" });
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_REQUEST_BYTES) {
+      return jsonResponse(413, { error: "request_too_large" });
+    }
+    body = JSON.parse(rawBody);
   } catch (error) {
     return jsonResponse(400, { error: "invalid_json" });
   }

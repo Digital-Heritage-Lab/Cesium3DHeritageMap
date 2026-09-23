@@ -258,7 +258,7 @@ test('Nur bekannte Felder überleben die Validierung', () => {
   useAtlas();
   const checked = GreenAITools.validate({ type: 'show_theme', theme: 'water', code: 'alert(1)', selector: '#x' });
   assert.deepEqual(JSON.parse(JSON.stringify(checked.action)), { type: 'show_theme', theme: 'water' });
-  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 16);
+  assert.equal(GreenAITools.ALLOWED_ACTIONS.length, 19);
 });
 
 test('Der <action>-Block wird aus dem sichtbaren Text entfernt', () => {
@@ -335,6 +335,38 @@ test('Stadtteil, Baumrang und benannter Ausgangsort liefern Datenantworten', asy
   assert.equal(near.action.origin, 'object');
   assert.equal(near.action.theme, 'water');
   assert.match(near.message, /Melaten/);
+});
+
+test('Geoanalyse, Stadtteilvergleich und Mehrfach-Layer nutzen nur geladene App-Daten', async () => {
+  const map = useAtlas({ bounds: WHOLE_CITY });
+  const analysis = await GreenAITools.handleLocal('Geoanalyse der Bäume im Kartenausschnitt');
+  assert.equal(analysis.action.type, 'spatial_analysis');
+  assert.match(analysis.message, /Geoanalyse für Bäume/);
+  assert.match(analysis.message, /Baumkataster/);
+
+  const comparison = await GreenAITools.handleLocal('Vergleiche Bäume in Ehrenfeld und Nippes');
+  assert.equal(comparison.action.type, 'compare_areas');
+  assert.match(comparison.message, /Ehrenfeld/);
+  assert.match(comparison.message, /Nippes/);
+  assert.match(comparison.message, /nicht pro Fläche oder Einwohnerzahl/);
+
+  const layers = await GreenAITools.handleLocal('Nur Parks und Brunnen anzeigen');
+  assert.equal(layers.action.type, 'set_layers');
+  assert.deepEqual([...map.visible].sort(), ['parks', 'water']);
+});
+
+test('Geoanalyse-Actions verwerfen unbekannte Ebenen und manipulierte Gebiete', async () => {
+  useAtlas();
+  for (const raw of [
+    { type: 'set_layers', themes: ['parks', '../../evil'] },
+    { type: 'set_layers', themes: ['parks', 'parks'] },
+    { type: 'spatial_analysis', scope: 'worldwide' },
+    { type: 'compare_areas', districts: ['Ehrenfeld'] },
+    { type: 'compare_areas', districts: ['Ehrenfeld', '<script>'] },
+  ]) {
+    const result = await GreenAITools.run(raw);
+    assert.equal(result.ok, false, JSON.stringify(raw));
+  }
 });
 
 test('Folgefragen und mehrere Actions nutzen nur erfolgreich validierten Zustand', async () => {

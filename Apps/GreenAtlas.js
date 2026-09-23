@@ -547,6 +547,9 @@ window.GreenAtlas = (() => {
   }
   function setThemeVisible(id, show) {
     map.setVisibility(id, show);
+    document.querySelectorAll(`[data-layer="${id}"]`).forEach((control) =>
+      control.setAttribute("aria-checked", String(show))
+    );
     updateContext();
     if (currentView === 'layers' && !panel().hidden) renderLayers();
     else if (activeTheme === id && !panel().hidden && !viewOnly) renderTheme(id);

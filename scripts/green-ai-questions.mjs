@@ -40,4 +40,8 @@ export const questions = [
   { text: 'Brunnen 500 Meter von diesem Punkt entfernt', type: 'find_nearby', origin: 'selected' },
   { text: 'Zeige Bäume und Meldungen', types: ['show_theme', 'show_reports'] },
   { text: 'Blende Meldungen und Bäume ein', types: ['show_theme', 'show_reports'] },
+  { text: 'Geoanalyse im Kartenausschnitt', type: 'spatial_analysis' },
+  { text: 'Analysiere die Bäume in Ehrenfeld', type: 'spatial_analysis', theme: 'trees', district: true },
+  { text: 'Vergleiche Bäume in Ehrenfeld und Nippes', type: 'compare_areas', theme: 'trees' },
+  { text: 'Nur Parks und Brunnen anzeigen', type: 'set_layers' },
 ];

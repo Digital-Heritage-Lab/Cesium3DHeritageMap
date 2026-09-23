@@ -18,10 +18,13 @@ window.GreenAITools = (() => {
     "get_map_context",
     "rank_trees",
     "rank_districts",
+    "set_layers",
+    "spatial_analysis",
+    "compare_areas",
     "open_coolroutes",
   ];
-  // Recognised but not implemented yet (Phase 2); they are rejected with a clear message.
-  const PLANNED_ACTIONS = ["calculate_route", "spatial_analysis", "compare_areas"];
+  // Route calculation stays inside the dedicated, server-backed CoolRoutes workflow.
+  const PLANNED_ACTIONS = ["calculate_route"];
   const REPORTS = "reports";
   const SCOPES = ["viewport", "all_loaded"];
   const STATUSES = ["all", "open", "in_progress", "closed"];
@@ -126,6 +129,17 @@ window.GreenAITools = (() => {
     return knownDistricts;
   };
   const resolveDistrict = (value) => districtNames().find((name) => norm(name) === norm(value));
+  const resolveDistrictParam = (value) => {
+    const district = resolveDistrict(str(value, 60));
+    if (!district) fail("Diesen Kölner Stadtteil kenne ich nicht.");
+    return district;
+  };
+  const themeList = (value) => {
+    if (!Array.isArray(value) || value.length < 1 || value.length > data().themes.length) fail("Ungültige Themenliste.");
+    const themes = [...new Set(value.map((id) => themeParam(id)))];
+    if (themes.length !== value.length) fail("Themen dürfen nicht doppelt vorkommen.");
+    return themes;
+  };
   const log = (event, detail) => console.debug(`[GreenAI] ${event}`, detail ?? "");
   const number = (value) => value.toLocaleString("de-DE");
   const plural = (n, one, many) => `${number(n)} ${n === 1 ? one : many}`;
@@ -270,6 +284,26 @@ window.GreenAITools = (() => {
           action.metric = raw.metric === "tree_count" ? "tree_count" : fail("Unbekannte Stadtteil-Auswertung.");
           action.limit = int(raw.limit, 1, 10, 5);
           break;
+        case "set_layers":
+          action.themes = themeList(raw.themes);
+          action.mode = raw.mode === undefined ? "replace" : ["replace", "add"].includes(raw.mode) ? raw.mode : fail("Ungültiger Ebenenmodus.");
+          break;
+        case "spatial_analysis":
+          action.theme = themeParam(raw.theme, { required: false });
+          action.scope = raw.scope === undefined ? "viewport" : SCOPES.includes(raw.scope) ? raw.scope : fail("Ungültiger Bereich.");
+          if (raw.district !== undefined) {
+            action.district = resolveDistrictParam(raw.district);
+            action.scope = "all_loaded";
+          }
+          action.show_layer = raw.show_layer !== false;
+          break;
+        case "compare_areas": {
+          action.theme = themeParam(raw.theme, { required: false });
+          if (!Array.isArray(raw.districts) || raw.districts.length !== 2) fail("Für den Vergleich brauche ich genau zwei Stadtteile.");
+          action.districts = raw.districts.map(resolveDistrictParam);
+          if (action.districts[0] === action.districts[1]) fail("Bitte nenne zwei unterschiedliche Stadtteile.");
+          break;
+        }
         case "find_nearby":
           action.theme = themeParam(raw.theme);
           action.radius_m = int(raw.radius_m, MIN_RADIUS, MAX_RADIUS, 1000);
@@ -636,6 +670,58 @@ window.GreenAITools = (() => {
         ...ranked.slice(0, action.limit).map(([name, count]) => `• ${name}: ${number(count)}`),
         "Quelle: Baumkataster Stadt Köln; betreute Einzelbäume, kein vollständiger Baumbestand."].join("\n") };
     },
+    set_layers(action) {
+      const selected = new Set(action.themes);
+      if (action.mode === "replace") {
+        for (const theme of data().themes) atlas().setThemeVisible(theme.id, selected.has(theme.id));
+      } else {
+        for (const theme of action.themes) atlas().setThemeVisible(theme, true);
+      }
+      const labels = action.themes.map((id) => data().theme(id).name);
+      return { kind: "map", message: `${action.mode === "replace" ? "Auf der Karte aktiv" : "Zusätzlich eingeblendet"}: ${labels.join(", ")}.` };
+    },
+    spatial_analysis(action) {
+      if (action.theme && action.show_layer) atlas().setThemeVisible(action.theme, true);
+      const result = gather({ themeId: action.theme, area: areaFor(action.scope), district: action.district });
+      const place = action.district ? `in ${action.district}` : scopeText(action.scope);
+      const subject = action.theme ? data().theme(action.theme).name : "alle geladenen GrünAtlas-Themen";
+      const rows = action.theme ? [] : [...result.byTheme.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, count]) => `• ${data().theme(id).name}: ${number(count)}`);
+      return {
+        kind: "query",
+        message: [
+          `Geoanalyse für ${subject} ${place}: ${number(result.total)} erfasste Objekte.`,
+          ...rows,
+          action.theme === "trees" || (!action.theme && result.cadastre)
+            ? `Baumkataster: ${number(result.cadastre)}, OpenStreetMap: ${number(result.osm)}.` : "",
+          result.unassigned ? `${number(result.unassigned)} OSM-Orte ohne Stadtteilzuordnung wurden nicht berücksichtigt.` : "",
+          sourceNote(action.theme),
+          "Die Auswertung zählt geladene Punktobjekte; sie bewertet weder Flächengröße noch Versorgungsqualität.",
+        ].filter(Boolean).join("\n"),
+      };
+    },
+    compare_areas(action) {
+      const results = action.districts.map((district) => ({
+        district,
+        result: gather({ themeId: action.theme, district }),
+      }));
+      const [first, second] = results;
+      const difference = Math.abs(first.result.total - second.result.total);
+      const leader = first.result.total === second.result.total ? null
+        : first.result.total > second.result.total ? first : second;
+      const subject = action.theme ? data().theme(action.theme).name : "erfasste GrünAtlas-Objekte";
+      return {
+        kind: "query",
+        message: [
+          `Stadtteilvergleich für ${subject}:`,
+          ...results.map(({ district, result }) => `• ${district}: ${number(result.total)}`),
+          leader ? `${leader.district} hat im geladenen Datensatz ${number(difference)} Einträge mehr.` : "Beide Stadtteile haben im geladenen Datensatz gleich viele Einträge.",
+          sourceNote(action.theme),
+          "Das ist ein Vergleich absoluter Datensatzzahlen, nicht pro Fläche oder Einwohnerzahl; fehlende Datensätze können das Ergebnis verzerren.",
+        ].join("\n"),
+      };
+    },
     open_coolroutes() {
       atlas().activateAppView("labs");
       return { kind: "map", message: "Ich öffne Coolrouten Köln. Wähle dort Start und Ziel; Entfernungen und Kennzahlen werden erst aus dem Routingdienst und den geladenen Gründaten berechnet." };
@@ -758,6 +844,7 @@ window.GreenAITools = (() => {
     ["trees", /baum|baume|linde|eiche/],
   ];
   const detectTheme = (q) => THEME_PATTERNS.find(([, pattern]) => pattern.test(q))?.[0] || null;
+  const detectThemes = (q) => THEME_PATTERNS.filter(([, pattern]) => pattern.test(q)).map(([id]) => id);
   function detectEdible(q) {
     if (/zier|felsen|nelken|blut|trauben/.test(q)) return null;
     const words = q.split(" ");
@@ -785,7 +872,18 @@ window.GreenAITools = (() => {
     const scope = view ? "viewport" : "all_loaded";
     const count = /wie viele|wieviele|anzahl/.test(q);
     const list = /welche|liste|auflisten|nenne/.test(q);
-    const district = districtNames().find((name) => new RegExp(`\\b${norm(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(q));
+    const mentionedDistricts = districtNames().filter((name) => new RegExp(`\\b${norm(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(q));
+    const district = mentionedDistricts[0];
+    if (/vergleich|vergleiche|gegenuber/.test(q) && mentionedDistricts.length >= 2) {
+      return { action: { type: "compare_areas", districts: mentionedDistricts.slice(0, 2), ...(theme && { theme }) } };
+    }
+    if (/geoanalyse|analysier|raumlich.*auswert|werte.*ausschnitt.*aus/.test(q)) {
+      return { action: { type: "spatial_analysis", scope, ...(theme && { theme }), ...(district && { district }) } };
+    }
+    if (/zeige nur|nur.*anzeigen|ebenen.*nur/.test(q)) {
+      const themes = detectThemes(q);
+      if (themes.length) return { action: { type: "set_layers", themes, mode: "replace" } };
+    }
     const previous = state.lastAction;
     const nextTheme = /brunnen|wasser/.test(q) ? "water" : /meldung/.test(q) ? REPORTS : detectTheme(q);
     if (/^(und |auch |davon |davon nur )/.test(q) && previous) {
@@ -927,6 +1025,9 @@ window.GreenAITools = (() => {
       '{"type":"get_map_context"}',
       '{"type":"rank_trees","metric":"planting_year|height|trunk|crown","scope":"viewport|all_loaded","limit":5,"district":"Stadtteil"}',
       '{"type":"rank_districts","metric":"tree_count","limit":5}',
+      '{"type":"set_layers","themes":[ID,ID],"mode":"replace|add"}  (steuert mehrere Kartenebenen in einer geprüften Aktion)',
+      '{"type":"spatial_analysis","theme":ID,"scope":"viewport|all_loaded","district":"Stadtteil","show_layer":true}  (theme und district optional)',
+      '{"type":"compare_areas","districts":["Stadtteil 1","Stadtteil 2"],"theme":ID}  (theme optional; nur absolute Datensatzzahlen)',
       '{"type":"open_coolroutes"}  (öffnet nur die Routingoberfläche; keine erfundenen Routenwerte)',
       'count_features und list_features akzeptieren optional "district":"Stadtteil"; find_nearby akzeptiert "origin":"object" mit "object_id" aus dem Kontext.',
       'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
