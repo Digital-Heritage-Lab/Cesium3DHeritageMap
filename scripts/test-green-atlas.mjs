@@ -107,11 +107,11 @@ test('Labs includes the Urban Green LiDAR Map draft contribution', async () => {
   assert.ok(labs.includes('badge: "Entwurf"'));
 });
 
-test('Labs includes GrünDaten MVP and digiFried 2.0 project proposal', async () => {
+test('Labs includes GrünDaten MVP and DigiFried 2.0 project proposal', async () => {
   const labs = await readFile(new URL('../Apps/GreenLabs.js', import.meta.url), 'utf8');
   assert.ok(labs.includes('GrünDaten Katalog'));
   assert.ok(labs.includes('https://jocular-churros-804908.netlify.app/'));
-  assert.ok(labs.includes('digiFried 2.0'));
+  assert.ok(labs.includes('DigiFried 2.0'));
   assert.ok(labs.includes('Digitale Zwillinge für Kölner Friedhöfe'));
   assert.ok(labs.includes('KI, Drohnen und Remote Sensing'));
   assert.ok(labs.includes('project: true'));
