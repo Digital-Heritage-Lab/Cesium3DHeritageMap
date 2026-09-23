@@ -1299,6 +1299,34 @@ summary {
   color: var(--muted);
   font-style: italic;
 }
+.green-ai-analysis .ai-interpretation {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--forest);
+  background: var(--sage);
+  border-radius: 0 6px 6px 0;
+}
+.green-ai-analysis .ai-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+}
+.green-ai-analysis .ai-reasoning {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: normal;
+}
+.green-ai-analysis .ai-reasoning summary {
+  cursor: pointer;
+  color: var(--forest);
+  font-weight: 600;
+}
+.green-ai-analysis .ai-reasoning ol {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
 #aiQuickActions {
   display: flex;
   gap: 7px;

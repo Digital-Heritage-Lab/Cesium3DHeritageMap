@@ -939,6 +939,35 @@ window.GreenAITools = (() => {
     try { return blocks.map((block) => JSON.parse(block[1])); }
     catch { return null; }
   }
+
+  /* ---------- reasoning trace and grounded interpretation ---------- */
+  // Model text is untrusted: it is shown only as plain text, trimmed, and never as data.
+  function parseReasoning(reply) {
+    const block = String(reply).match(/<reasoning>([\s\S]*?)<\/reasoning>/i)?.[1] || "";
+    return block.split(/\n+/).map((step) => step.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
+      .filter(Boolean).slice(0, 4).map((step) => step.slice(0, 180));
+  }
+  const stripModelTags = (reply) => String(reply)
+    .replace(/<(action|reasoning)>[\s\S]*?<\/\1>/gi, "").replace(/<\/?(action|reasoning)>/gi, "").trim();
+  // Sentences with digits are dropped: every number shown next to data comes from GrünAtlas.
+  function withoutNumbers(text) {
+    return (String(text).match(/[^.!?\n]+[.!?]?/g) || [])
+      .map((sentence) => sentence.trim()).filter((sentence) => sentence && !/\d/.test(sentence))
+      .join(" ").slice(0, 500);
+  }
+  function describeAction(action) {
+    const params = Object.entries(action).filter(([key]) => key !== "type")
+      .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join("+") : typeof value === "object" ? JSON.stringify(value) : value}`);
+    return params.length ? `${action.type} (${params.join(", ")})` : action.type;
+  }
+  function buildInterpretPrompt() {
+    return [
+      "Du bist GrünAI, der GeoAI-Assistent des GrünAtlas Köln.",
+      "Du erhältst die Frage des Nutzers und das geprüfte Ergebnis aus den GrünAtlas-Daten.",
+      "Ordne das Ergebnis in zwei bis drei kurzen Sätzen auf Deutsch fachlich ein: Was bedeutet es für die Frage, welche Grenzen haben die Daten, welcher sinnvolle nächste Schritt auf der Karte bietet sich an?",
+      "Nenne KEINE Zahlen, Mengen, Jahre oder Entfernungen und wiederhole keine Listen: GrünAtlas zeigt diese bereits. Erfinde keine Orte oder Eigenschaften. Keine Actions, keine Tags.",
+    ].join("\n");
+  }
   function remember(state, result) {
     if (!state || (!result?.ok && !result?.actions?.length)) return;
     const action = result.actions?.at(-1) || result.action;
@@ -1142,8 +1171,10 @@ window.GreenAITools = (() => {
     return [
       "Du bist GrünAI, der GeoAI-Assistent des GrünAtlas Köln (Stadt Köln, Amt für Landschaftspflege und Grünflächen).",
       "Du darfst ausschließlich die unten definierten GrünAtlas-Actions anfordern. Du führst selbst keine GIS-Berechnungen durch und erfindest keine Objekte, Entfernungen, Mengen oder Eigenschaften. Du nutzt nur Informationen aus dem Kontext oder aus Action-Ergebnissen. Fehlen Daten, sagst du das klar.",
-      "Antworte kurz auf Deutsch, höchstens ein Satz, und nenne keine Zahlen: Zahlen, Listen und Entfernungen liefert GrünAtlas selbst nach der Action.",
+      "Antworte bei Actions kurz auf Deutsch, höchstens ein Satz, und nenne keine Zahlen: Zahlen, Listen und Entfernungen liefert GrünAtlas selbst nach der Action.",
       "Setze eine bis drei Actions am Ende als getrennte <action>{JSON}</action>-Blöcke. Nutze den Gesprächszustand für Folgefragen. Erfinde keine Action. Der Nutzer sieht die Blöcke nicht.",
+      "Beginne jede Antwort mit <reasoning>…</reasoning>: zwei bis vier kurze Zeilen ohne Zahlen, wie du die Frage auf Karte und Daten abbildest (Thema, Raumbezug, gewählte Action und warum). Der Nutzer sieht diese Zeilen als Denkweg.",
+      "Beziehe Fragen zu Orten, Mengen, Vergleichen, Nähe oder Zustand immer auf eine Action. Nur bei reinem Allgemeinwissen ohne Datenbezug (z. B. Geschichte, Begriffe, Biologie) antwortest du ohne Action in höchstens drei Sätzen; diese Antwort wird als nicht aus GrünAtlas-Daten geprüft gekennzeichnet. Nutze get_map_context nicht als Ausweichantwort.",
       `Themen (theme): ${themes}. Sonderwert "reports" = Sag's uns Köln Grünmeldungen (nur bei count_features und list_features).`,
       "Jede Action ist ein JSON-Objekt und MUSS das Feld \"type\" enthalten. Actions (ID = eine Theme-ID):",
       '{"type":"show_theme","theme":ID}  {"type":"hide_theme","theme":ID}  {"type":"zoom_to_theme","theme":ID}',
@@ -1167,7 +1198,7 @@ window.GreenAITools = (() => {
       '{"type":"tree_structure_analysis","scope":"viewport|all_loaded","district":"Stadtteil"}  (Altersklassen sowie vorhandene Höhen- und Kronenwerte; kein Pflegezustand)',
       '{"type":"open_coolroutes"}  (öffnet nur die Routingoberfläche; keine erfundenen Routenwerte)',
       'count_features und list_features akzeptieren optional "district":"Stadtteil"; find_nearby akzeptiert "origin":"object" mit "object_id" aus dem Kontext.',
-      'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
+      'Beispiel: Nutzer "Zeige die Brunnen" -> Antwort: <reasoning>Gefragt ist das Thema Brunnen & Trinkwasser.\nDie Ebene muss eingeblendet werden, daher show_theme.</reasoning> Ich blende die Brunnen ein. <action>{"type":"show_theme","theme":"water"}</action>',
       "Datenquellen: begrenzter OpenStreetMap-Auszug, Baumkataster der Stadt Köln (betreute Einzelbäume, nicht alle Bäume), Sag's uns Köln (Meldungen der letzten 30 Tage), sonst Demo-Daten. Keine Quelle ist ein vollständiger amtlicher Bestand.",
       'Ob eine Baumart essbare Früchte trägt, entscheidest du nicht: GrünAtlas prüft das über eine feste Artenliste; du setzt nur "edible":true bzw. "species". Sage nie, Früchte seien bedenkenlos essbar.',
       "„In meiner Nähe“ braucht den Standort des Nutzers (userLocationAvailable im Kontext). Für Fußrouten darfst du nur open_coolroutes verwenden; GrünAtlas berechnet die Route anschließend serverseitig.",
@@ -1178,6 +1209,6 @@ window.GreenAITools = (() => {
   return {
     ALLOWED_ACTIONS, PLANNED_ACTIONS, EDIBLE_TREE_SPECIES, MIN_RADIUS, MAX_RADIUS,
     validate, run, runActions, parseActionBlocks, remember, localIntent, handleLocal, buildSystemPrompt, buildContext,
-    edibleInfo, haversine,
+    edibleInfo, haversine, parseReasoning, stripModelTags, withoutNumbers, describeAction, buildInterpretPrompt,
   };
 })();

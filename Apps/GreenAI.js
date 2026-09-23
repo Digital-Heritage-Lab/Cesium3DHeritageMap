@@ -122,53 +122,112 @@ window.GreenAI = class GreenAI extends HeritageAIChat {
       this.hideTypingIndicator();
     }
   }
-  // One request per question. The model returns intents in <action> blocks; numbers, lists and
-  // distances in the visible answer always come from GreenAITools, never from the model text.
-  async askModel(text) {
-    console.debug("[GreenAI] remote intent");
+  async requestModel(messages, timeoutMs = 15000) {
     const controller = new AbortController(),
-      timeout = setTimeout(() => controller.abort(), 15000);
-    let data;
+      timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({
-          messages: [
-            { role: "system", content: GreenAITools.buildSystemPrompt(this.sessionState) },
-            ...this.conversation.slice(-10),
-            { role: "user", content: text },
-          ],
-        }),
+        body: JSON.stringify({ messages }),
       });
       if (!response.ok)
         throw new Error(response.status === 503 ? "not_configured" : "unavailable");
-      data = await response.json();
+      const data = await response.json();
+      const reply = typeof data?.reply === "string" ? data.reply.trim() : "";
+      if (!reply) throw new Error("empty");
+      return reply;
     } finally {
       clearTimeout(timeout);
     }
-    const reply = typeof data?.reply === "string" ? data.reply.trim() : "";
-    if (!reply) throw new Error("empty");
+  }
+  // Plan -> validated actions -> optional interpretation. The model returns a short reasoning
+  // trace and intents in <action> blocks; numbers, lists and distances in the visible answer
+  // always come from GreenAITools. The interpretation step is best effort and number-free.
+  async askModel(text) {
+    console.debug("[GreenAI] remote intent");
+    const reply = await this.requestModel([
+      { role: "system", content: GreenAITools.buildSystemPrompt(this.sessionState) },
+      ...this.conversation.slice(-10),
+      { role: "user", content: text },
+    ]);
+    const reasoning = GreenAITools.parseReasoning(reply);
+    const actions = GreenAITools.parseActionBlocks(reply);
+    const displayText = GreenAITools.stripModelTags(reply);
     this.conversation.push(
       { role: "user", content: text },
-      { role: "assistant", content: reply }
+      { role: "assistant", content: reply.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "").trim() }
     );
     this.conversation = this.conversation.slice(-12);
-    const actions = GreenAITools.parseActionBlocks(reply);
-    const displayText = reply.replace(/<action>[\s\S]*?<\/action>/gi, "").trim();
-    if (actions?.length) {
-      const result = await GreenAITools.runActions(actions);
-      GreenAITools.remember(this.sessionState, result);
-      this.addMessage(result.message, "ai");
-    } else if (actions === null) {
+    if (actions === null) {
       console.warn("[GreenAI] action rejected: unreadable action block");
       this.addMessage("Diese Aktion kann ich nicht ausführen.", "ai");
-    } else {
-      this.addMessage(
-        displayText.slice(0, 800) || "Das habe ich nicht verstanden. Formuliere die Frage bitte anders.",
-        "ai"
-      );
+      return;
     }
+    if (!actions.length) {
+      this.addAnalysis({
+        answer: displayText.slice(0, 800) || "Das habe ich nicht verstanden. Formuliere die Frage bitte anders.",
+        reasoning,
+        note: displayText ? "Allgemeine KI-Antwort, nicht aus GrünAtlas-Daten geprüft." : "",
+      });
+      return;
+    }
+    const result = await GreenAITools.runActions(actions);
+    GreenAITools.remember(this.sessionState, result);
+    const trace = [
+      ...reasoning,
+      ...(result.actions || []).map((action) => `Geprüfte Aktion: ${GreenAITools.describeAction(action)}`),
+    ];
+    if (!result.ok) {
+      this.addAnalysis({ answer: result.message, reasoning: trace });
+      return;
+    }
+    this.addAnalysis({
+      answer: result.message,
+      reasoning: [...trace, "Zahlen und Listen stammen aus den geladenen GrünAtlas-Daten."],
+      interpretation: await this.interpret(text, result.message),
+    });
+  }
+  async interpret(question, resultText) {
+    try {
+      const reply = await this.requestModel([
+        { role: "system", content: GreenAITools.buildInterpretPrompt() },
+        { role: "user", content: `Frage: ${question.slice(0, 500)}\nGeprüftes Ergebnis:\n${resultText.slice(0, 1500)}` },
+      ], 12000);
+      return GreenAITools.withoutNumbers(GreenAITools.stripModelTags(reply));
+    } catch (error) {
+      console.debug("[GreenAI] interpretation skipped", error?.message);
+      return "";
+    }
+  }
+  // Plain-text rendering only; model text never reaches innerHTML.
+  addAnalysis({ answer, reasoning = [], interpretation = "", note = "" }) {
+    const message = document.createElement("div");
+    message.className = "chat-message ai green-ai-analysis";
+    const add = (tag, content, className) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      node.textContent = content;
+      message.appendChild(node);
+      return node;
+    };
+    add("div", answer);
+    if (interpretation) add("p", interpretation, "ai-interpretation");
+    if (note) add("p", note, "ai-note");
+    if (reasoning.length) {
+      const details = add("details", "", "ai-reasoning");
+      const summary = document.createElement("summary");
+      summary.textContent = "Denkweg anzeigen";
+      const list = document.createElement("ol");
+      for (const step of reasoning) {
+        const item = document.createElement("li");
+        item.textContent = step;
+        list.appendChild(item);
+      }
+      details.append(summary, list);
+    }
+    this.chatHistory.appendChild(message);
+    this.scrollToBottom();
   }
 };

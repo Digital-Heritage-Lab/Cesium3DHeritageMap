@@ -414,3 +414,15 @@ test('Modellblöcke werden vollständig gelesen und Fehler stoppen Action-Folgen
   GreenAITools.remember(state, partial);
   assert.equal(state.lastAction.theme, 'trees');
 });
+
+test('Denkweg und Einordnung bleiben reiner Text ohne Modellzahlen', () => {
+  const reply = '<reasoning>1. Gefragt sind Spielplätze.\n- Raumbezug ist der Kartenausschnitt.\n\n* Daher count_features.</reasoning> Ich zähle. <action>{"type":"count_features","theme":"play"}</action>';
+  assert.deepEqual([...GreenAITools.parseReasoning(reply)], ['Gefragt sind Spielplätze.', 'Raumbezug ist der Kartenausschnitt.', 'Daher count_features.']);
+  assert.equal(GreenAITools.stripModelTags(reply), 'Ich zähle.');
+  assert.equal(GreenAITools.parseReasoning('ohne Block').length, 0);
+  assert.equal(GreenAITools.parseReasoning(`<reasoning>${'a\n'.repeat(9)}</reasoning>`).length, 4);
+  assert.equal(GreenAITools.withoutNumbers('Es gibt 42 Parks. Die Versorgung wirkt gut! Seit 1920 geplant.'), 'Die Versorgung wirkt gut!');
+  assert.equal(GreenAITools.describeAction({ type: 'set_layers', themes: ['parks', 'water'], mode: 'add' }), 'set_layers (themes=parks+water, mode=add)');
+  assert.doesNotMatch(GreenAITools.buildInterpretPrompt(), /<action>/);
+  assert.match(GreenAITools.buildSystemPrompt({}), /<reasoning>/);
+});
