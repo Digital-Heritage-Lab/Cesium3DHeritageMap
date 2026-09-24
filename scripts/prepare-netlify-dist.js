@@ -117,15 +117,13 @@ async function main() {
 
     let totalBytes = 0;
     const landingIndex = `<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Grün Atlas Köln</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="0;url=/Apps/3DHeritageMapApp.html">
+  <title>Cesium 3D Heritage Map</title>
 </head>
 <body>
-  <a href="/Apps/3DHeritageMapApp.html">Grün Atlas Köln öffnen</a>
+  <a href="/Apps/3DHeritageMapApp.html">Open Cesium 3D Heritage Map</a>
 </body>
 </html>
 `;

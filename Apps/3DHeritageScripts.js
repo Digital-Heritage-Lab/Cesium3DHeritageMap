@@ -1,13 +1,14 @@
 // Configuration
-// Public deployment configuration. Keep credentials out of this browser bundle.
-// The Grün Atlas uses public basemaps by default; legacy 3D assets require an
-// explicitly configured, referer-restricted Cesium Ion token at deployment time.
+// SECURITY: All Ion access tokens below are shipped to every browser. They MUST be
+// referer-restricted in the Cesium Ion console (Access Tokens -> Allowed URLs) to the
+// production Netlify domain (and any staging domains). Rotate here if any restriction
+// is missing or if a token is suspected of being abused.
 const config = {
-    ionAccessToken: "",
+    ionAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMjhiN2RhOC1lYThlLTQ3NGEtYWQ3NC05YjRmOTI5M2M0OWEiLCJpZCI6NzgzODEsImlhdCI6MTcxMDc5ODQ0MH0.nuQD0pwTIy_aHKIqEGLzrhxCCCelkCHyNeJURm3v-Q8",
     lod2WestIonAssetId: 4382415,
-    lod2WestIonToken: "",
+    lod2WestIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyNGNjZmZhMi0wYWZjLTRmOTUtYTkxMi00NTVmODhjMDlkNjkiLCJpZCI6MzgzMjY1LCJpYXQiOjE3Njk0NDEzMzN9.R2m7MFamEMTiO81VChtkLLhlEVgfHNv-qXoQDZ-fe0c",
     lod2EastIonAssetId: 4383827,
-    lod2EastIonToken: "",
+    lod2EastIonToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJjZmY3NTE0Ni00MjQ4LTRiMjAtYTJiYy1jODdmMWYxMGQ2OWIiLCJpZCI6MzgzNDA1LCJpYXQiOjE3Njk0MDg4ODZ9.eZr19bHXXVcMk9_E_JasN6tfzubdu_qsJa2j41BpgXI",
     monumentsRemoteUrl: 'https://opendem.info/cgi-bin/getDenkmal.py',
     monumentsLocalUrl: 'Data/denkmaeler.json',
     assetsUrl: 'Data/assets.json',
@@ -48,17 +49,6 @@ const config = {
 
 // Cesium Ion access token
 Cesium.Ion.defaultAccessToken = config.ionAccessToken;
-
-// The new product shares the engine; the heritage view retains its defaults.
-if (window.GREEN_ATLAS_MODE) {
-    Object.assign(config, {
-        enable3DTiles: false,
-        useGooglePhotorealistic: false,
-        baseMapDefaultId: 'basemap-libre',
-        baseMapFallbackId: 'osm',
-        cologne: { longitude: 6.96, latitude: 50.942, height: 15500, heading: 0, pitch: -90 }
-    });
-}
 
 function getConfigNumber(value, fallback) {
     const numberValue = Number(value);
@@ -232,10 +222,22 @@ function createMapboxImageryProvider() {
 }
 
 async function createBasemapLibreProvider() {
+    // Probe the same endpoint used for tiles before replacing the working map.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+        const response = await fetch('/api/carto/light_all/0/0/0.png', { signal: controller.signal });
+        if (!response.ok || !response.headers.get('content-type')?.includes('image/png')) {
+            throw new Error('CARTO basemap unavailable.');
+        }
+        await response.arrayBuffer();
+    } finally {
+        clearTimeout(timeout);
+    }
     return new Cesium.UrlTemplateImageryProvider({
-        url: 'https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_grau/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',
-        maximumLevel: 19,
-        credit: new Cesium.Credit('© <a href="https://basemap.de/produkte-und-dienste/web-raster/">GeoBasis-DE / BKG (basemap.de)</a>', true)
+        url: '/api/carto/light_all/{z}/{x}/{y}.png',
+        maximumLevel: 20,
+        credit: new Cesium.Credit('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>', true)
     });
 }
 
@@ -310,16 +312,7 @@ async function createBaseLayer() {
         ? getFallbackBaseMapId()
         : configuredBaseMapId;
     const resolvedId = resolveBaseMapId(requestedId);
-    let baseLayer;
-    try {
-        baseLayer = await createBaseLayerFromId(resolvedId);
-    } catch (error) {
-        if (!window.GREEN_ATLAS_MODE) throw error;
-        baseLayer = await createBaseLayerFromId('osm');
-        currentBaseMapId = 'osm';
-        currentImageryBaseMapId = 'osm';
-        return baseLayer;
-    }
+    const baseLayer = await createBaseLayerFromId(resolvedId);
     if (baseLayer) {
         currentBaseMapId = resolvedId;
         currentImageryBaseMapId = resolvedId;
@@ -1183,7 +1176,6 @@ const radios = {
 
 // Add event listeners to radio buttons
 for (const radioId in radios) {
-    if (!radios[radioId]) continue;
     radios[radioId].addEventListener('change', () => {
         // Update active class on labels
         const labels = document.querySelectorAll('#optionsBox label');
@@ -1828,7 +1820,7 @@ async function loadGeoJson() {
  * @returns {string} - The value of the parameter.
  */
 function getUrlParameter(name) {
-    name = name.replace(/\[/, '\\[').replace(/\]/, '\\]');
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
     var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
     var results = regex.exec(location.search);
     return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
@@ -1870,9 +1862,6 @@ async function initViewer() {
         createBaseLayer()
     ]);
     const viewerOptions = {
-        geocoder: !window.GREEN_ATLAS_MODE,
-        homeButton: !window.GREEN_ATLAS_MODE,
-        fullscreenButton: !window.GREEN_ATLAS_MODE,
         baseLayer: baseLayer,
         baseLayerPicker: false,
         sceneModePicker: false,
@@ -1915,9 +1904,9 @@ async function initViewer() {
     }
 
     // Enable 3D lighting
-    viewer.scene.globe.enableLighting = !window.GREEN_ATLAS_MODE;
+    viewer.scene.globe.enableLighting = true;
 
-    if (!window.GREEN_ATLAS_MODE) assetsReady = loadAssets();
+    assetsReady = loadAssets();
     if (eagerLoadOptionalTilesets) {
         void loadOsmBuildings();
         void loadLod2Tilesets();
@@ -1933,7 +1922,7 @@ async function initViewer() {
         }
     }
 
-    if (!window.GREEN_ATLAS_MODE) void loadGeoJson()
+    void loadGeoJson()
         .finally(() => {
             hideLoading();
             activateDeferredInitialPhotorealistic();
@@ -1993,10 +1982,6 @@ async function initViewer() {
             focusEntityMarker(pickedId, 1.8);
         }
     }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-    if (window.GREEN_ATLAS_MODE) {
-        hideLoading();
-        await window.GreenAtlas.mount(viewer);
-    }
 }
 
 /**
@@ -2196,7 +2181,6 @@ function togglePanel(panelKey) {
 }
 
 // Setup event listeners for all panels
-if (!window.GREEN_ATLAS_MODE) {
 document.getElementById('openOptionsBox').onclick = () => {
     togglePanel('options');
 };
@@ -2244,9 +2228,7 @@ document.getElementById('toggleAiChat').onclick = () => {
     }
     togglePanel('aichat');
 };
-}
 
 initViewer().catch((error) => {
     console.error('Cesium initialization failed:', error);
-    if (window.GREEN_ATLAS_MODE) window.GreenAtlas.showError('Die Karte konnte nicht gestartet werden. Bitte lade die Seite neu.');
 });

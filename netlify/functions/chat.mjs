@@ -7,20 +7,19 @@
 //
 // The same endpoint exists in server.js for local development.
 
-import { createRateLimiter, sanitizeMessages } from "../../scripts/chat-guard.mjs";
-
-const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
+const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 // Free models are often rate-limited upstream; when the primary model fails
 // with a retryable error, the proxy tries these in order. Free slugs rotate —
 // check https://openrouter.ai/api/v1/models (ids ending in ":free") when all
 // of them start returning 404.
 const FALLBACK_MODELS = [
-  "qwen/qwen3.8-27b:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openai/gpt-oss-120b:free",
+  "google/gemma-4-31b-it:free",
+  "qwen/qwen3-next-80b-a3b-instruct:free",
 ];
-const MAX_OUTPUT_TOKENS = 600;
-const MAX_REQUEST_BYTES = 32000;
+const MAX_MESSAGES = 24;
+const MAX_TOTAL_CHARS = 24000;
+const MAX_OUTPUT_TOKENS = 400;
 // Netlify synchronous functions time out at 10s; abort upstream a bit earlier
 // so the browser gets a clean JSON error instead of a platform 502.
 const UPSTREAM_TIMEOUT_MS = 9000;
@@ -44,9 +43,29 @@ function getNetlifyEnv(name) {
   return process.env[name];
 }
 
-const allowRequest = createRateLimiter();
+// Accept only plain {role, content} text messages and enforce size caps so the
+// public endpoint cannot be used as a general-purpose proxy for the key.
+function sanitizeMessages(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return null;
+  }
+  const allowedRoles = new Set(["system", "user", "assistant"]);
+  const messages = [];
+  let totalChars = 0;
+  for (const entry of raw.slice(-MAX_MESSAGES)) {
+    if (!entry || !allowedRoles.has(entry.role) || typeof entry.content !== "string") {
+      return null;
+    }
+    totalChars += entry.content.length;
+    if (totalChars > MAX_TOTAL_CHARS) {
+      return null;
+    }
+    messages.push({ role: entry.role, content: entry.content });
+  }
+  return messages;
+}
 
-export default async (req, context) => {
+export default async (req) => {
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "method_not_allowed" });
   }
@@ -57,12 +76,6 @@ export default async (req, context) => {
     return jsonResponse(403, { error: "forbidden" });
   }
 
-  const clientIp =
-    (context && context.ip) || req.headers.get("x-nf-client-connection-ip") || "unknown";
-  if (!allowRequest(clientIp)) {
-    return jsonResponse(429, { error: "rate_limited" });
-  }
-
   const apiKey = getNetlifyEnv("OPENROUTER_API_KEY");
   if (!apiKey) {
     // The client treats this as "LLM mode off" and falls back to offline commands.
@@ -71,15 +84,7 @@ export default async (req, context) => {
 
   let body;
   try {
-    const declaredLength = Number(req.headers.get("content-length") || 0);
-    if (declaredLength > MAX_REQUEST_BYTES) {
-      return jsonResponse(413, { error: "request_too_large" });
-    }
-    const rawBody = await req.text();
-    if (rawBody.length > MAX_REQUEST_BYTES) {
-      return jsonResponse(413, { error: "request_too_large" });
-    }
-    body = JSON.parse(rawBody);
+    body = await req.json();
   } catch (error) {
     return jsonResponse(400, { error: "invalid_json" });
   }
@@ -114,13 +119,12 @@ export default async (req, context) => {
           "Content-Type": "application/json",
           // OpenRouter attribution headers (recommended, improves free-tier routing)
           "HTTP-Referer": new URL(req.url).origin,
-          "X-Title": "GrünAtlas Köln | GrünAI",
+          "X-Title": "Cesium3D Heritage Map GeoAI",
         },
         body: JSON.stringify({
           model: model,
           messages: messages,
-          max_completion_tokens: MAX_OUTPUT_TOKENS,
-          reasoning_effort: "none",
+          max_tokens: MAX_OUTPUT_TOKENS,
           temperature: 0.4,
         }),
       });
@@ -137,17 +141,12 @@ export default async (req, context) => {
       }
 
       const data = await upstream.json();
-      const choice = data && data.choices && data.choices[0];
       const reply =
-        choice && choice.message
-          ? choice.message.content
+        data && data.choices && data.choices[0] && data.choices[0].message
+          ? data.choices[0].message.content
           : null;
-      if (
-        typeof reply !== "string" ||
-        reply.trim().length === 0 ||
-        choice.finish_reason === "length"
-      ) {
-        continue; // empty or incomplete answer — try the next model
+      if (typeof reply !== "string" || reply.trim().length === 0) {
+        continue; // empty answer — try the next model
       }
 
       return jsonResponse(200, { reply: reply });

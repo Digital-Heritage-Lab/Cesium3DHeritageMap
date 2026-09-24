@@ -13,9 +13,6 @@ import yargs from "yargs";
 import ContextCache from "./scripts/ContextCache.js";
 import createRoute from "./scripts/createRoute.js";
 import { serveCarto } from "./netlify/functions/carto.mjs";
-import { createRateLimiter, sanitizeMessages } from "./scripts/chat-guard.mjs";
-import { loadGreenReports } from "./scripts/sags-uns-service.mjs";
-import { serveGeocode, serveRoutes } from "./scripts/route-service.mjs";
 
 const argv = yargs(process.argv)
   .options({
@@ -26,6 +23,14 @@ const argv = yargs(process.argv)
     public: {
       type: "boolean",
       description: "Run a public server that listens on all interfaces.",
+    },
+    "upstream-proxy": {
+      description:
+        'A standard proxy server that will be used to retrieve data.  Specify a URL including port, e.g. "http://proxy:8000".',
+    },
+    "bypass-upstream-proxy-hosts": {
+      description:
+        'A comma separated list of hosts that will bypass the specified upstream_proxy, e.g. "lanhost1,lanhost2"',
     },
     production: {
       type: "boolean",
@@ -294,36 +299,56 @@ async function generateDevelopmentBuild() {
   // Requires OPENROUTER_API_KEY (environment variable or gitignored .env file).
   const chatProxyConfig = {
     model:
-      process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free",
+      process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
     // Free models are often rate-limited upstream; retry with these in order.
     // Free slugs rotate — check https://openrouter.ai/api/v1/models (ids
     // ending in ":free") when all of them start returning 404.
     fallbackModels: [
-      "qwen/qwen3.8-27b:free",
-      "google/gemma-4-26b-a4b-it:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
+      "openai/gpt-oss-120b:free",
+      "google/gemma-4-31b-it:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
     ],
-    maxOutputTokens: 600,
+    maxMessages: 24,
+    maxTotalChars: 24000,
+    maxOutputTokens: 400,
     upstreamTimeoutMs: 15000,
     minAttemptBudgetMs: 2000,
   };
 
-  const allowChatRequest = createRateLimiter();
+  function sanitizeChatMessages(raw) {
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return null;
+    }
+    const allowedRoles = ["system", "user", "assistant"];
+    const messages = [];
+    let totalChars = 0;
+    for (const entry of raw.slice(-chatProxyConfig.maxMessages)) {
+      if (
+        !entry ||
+        allowedRoles.indexOf(entry.role) === -1 ||
+        typeof entry.content !== "string"
+      ) {
+        return null;
+      }
+      totalChars += entry.content.length;
+      if (totalChars > chatProxyConfig.maxTotalChars) {
+        return null;
+      }
+      messages.push({ role: entry.role, content: entry.content });
+    }
+    return messages;
+  }
 
-  app.post("/api/chat", express.json({ limit: "32kb" }), async function (
+  app.post("/api/chat", express.json({ limit: "64kb" }), async function (
     req,
     res
   ) {
-    if (!allowChatRequest(req.ip || "local")) {
-      return res.status(429).json({ error: "rate_limited" });
-    }
-
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return res.status(503).json({ error: "llm_not_configured" });
     }
 
-    const messages = sanitizeMessages(req.body && req.body.messages);
+    const messages = sanitizeChatMessages(req.body && req.body.messages);
     if (!messages) {
       return res.status(400).json({ error: "invalid_messages" });
     }
@@ -358,13 +383,12 @@ async function generateDevelopmentBuild() {
               Authorization: `Bearer ${apiKey}`,
               "Content-Type": "application/json",
               "HTTP-Referer": `${req.protocol}://${req.headers.host}`,
-              "X-Title": "GrünAtlas Köln | GrünAI",
+              "X-Title": "Cesium3D Heritage Map GeoAI",
             },
             body: JSON.stringify({
               model: model,
               messages: messages,
-              max_completion_tokens: chatProxyConfig.maxOutputTokens,
-              reasoning_effort: "none",
+              max_tokens: chatProxyConfig.maxOutputTokens,
               temperature: 0.4,
             }),
           }
@@ -391,17 +415,12 @@ async function generateDevelopmentBuild() {
         }
 
         const data = await upstream.json();
-        const choice = data && data.choices && data.choices[0];
         const reply =
-          choice && choice.message
-            ? choice.message.content
+          data && data.choices && data.choices[0] && data.choices[0].message
+            ? data.choices[0].message.content
             : null;
-        if (
-          typeof reply !== "string" ||
-          reply.trim().length === 0 ||
-          choice.finish_reason === "length"
-        ) {
-          continue; // empty or incomplete answer — try the next model
+        if (typeof reply !== "string" || reply.trim().length === 0) {
+          continue; // empty answer — try the next model
         }
 
         return res.json({ reply: reply });
@@ -430,52 +449,88 @@ async function generateDevelopmentBuild() {
     res.status(response.status).send(Buffer.from(await response.arrayBuffer()));
   });
 
-  app.get("/api/sags-uns", async function (_req, res) {
-    try {
-      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=300');
-      res.json(await loadGreenReports());
-    } catch {
-      res.status(502).json({ error: 'reports_unavailable' });
-    }
-  });
-
-  const allowRouteRequest = createRateLimiter({ limit: 20, windowMs: 60000 });
-  app.post("/api/routes", express.text({ type: "application/json", limit: "2kb" }), async function (req, res) {
-    if (!allowRouteRequest(req.ip || "local")) {
-      return res.status(429).json({ error: "rate_limited" });
-    }
-    const response = await serveRoutes(
-      new Request(`${req.protocol}://${req.headers.host}${req.originalUrl}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: typeof req.body === "string" ? req.body : JSON.stringify(req.body || {}),
-      }),
-      process.env.ORS_API_KEY,
-      fetch
-    );
-    response.headers.forEach((value, name) => res.setHeader(name, value));
-    res.status(response.status).send(await response.text());
-  });
-
-  app.get("/api/geocode", async function (req, res) {
-    if (!allowRouteRequest(req.ip || "local")) {
-      return res.status(429).json({ error: "rate_limited" });
-    }
-    const response = await serveGeocode(
-      new Request(`${req.protocol}://${req.headers.host}${req.originalUrl}`),
-      process.env.ORS_API_KEY,
-      fetch
-    );
-    response.headers.forEach((value, name) => res.setHeader(name, value));
-    res.status(response.status).send(await response.text());
-  });
-
-  // Same as the Netlify rewrite: the app answers on "/" without a visible path.
-  app.get("/", function (_req, res) {
-    res.sendFile(path.resolve("Apps", "3DHeritageMapApp.html"));
-  });
-
   app.use(express.static(path.resolve(".")));
+
+  function getRemoteUrlFromParam(req) {
+    let remoteUrl = req.params[0];
+    if (remoteUrl) {
+      // add http:// to the URL if no protocol is present
+      if (!/^https?:\/\//.test(remoteUrl)) {
+        remoteUrl = `http://${remoteUrl}`;
+      }
+      remoteUrl = new URL(remoteUrl);
+      // copy query string
+      const baseURL = `${req.protocol}://${req.headers.host}/`;
+      remoteUrl.search = new URL(req.url, baseURL).search;
+    }
+    return remoteUrl;
+  }
+
+  const dontProxyHeaderRegex = /^(?:Host|Proxy-Connection|Connection|Keep-Alive|Transfer-Encoding|TE|Trailer|Proxy-Authorization|Proxy-Authenticate|Upgrade)$/i;
+
+  //eslint-disable-next-line no-unused-vars
+  function filterHeaders(req, headers) {
+    const result = {};
+    // filter out headers that are listed in the regex above
+    Object.keys(headers).forEach(function (name) {
+      if (!dontProxyHeaderRegex.test(name)) {
+        result[name] = headers[name];
+      }
+    });
+    return result;
+  }
+
+  const upstreamProxy = argv["upstream-proxy"];
+  const bypassUpstreamProxyHosts = {};
+  if (argv["bypass-upstream-proxy-hosts"]) {
+    argv["bypass-upstream-proxy-hosts"].split(",").forEach(function (host) {
+      bypassUpstreamProxyHosts[host.toLowerCase()] = true;
+    });
+  }
+
+  //eslint-disable-next-line no-unused-vars
+  app.get("/proxy/*", async function (req, res, next) {
+    // look for request like http://localhost:8080/proxy/http://example.com/file?query=1
+    let remoteUrl = getRemoteUrlFromParam(req);
+    if (!remoteUrl) {
+      // look for request like http://localhost:8080/proxy/?http%3A%2F%2Fexample.com%2Ffile%3Fquery%3D1
+      remoteUrl = Object.keys(req.query)[0];
+      if (remoteUrl) {
+        const baseURL = `${req.protocol}://${req.headers.host}/`;
+        remoteUrl = new URL(remoteUrl, baseURL);
+      }
+    }
+
+    if (!remoteUrl) {
+      return res.status(400).send("No url specified.");
+    }
+
+    if (!remoteUrl.protocol) {
+      remoteUrl.protocol = "http:";
+    }
+
+    let proxy;
+    if (upstreamProxy && !(remoteUrl.host in bypassUpstreamProxyHosts)) {
+      proxy = upstreamProxy;
+    }
+
+    try {
+      const response = await fetch(remoteUrl.toString(), {
+        method: "GET",
+        headers: filterHeaders(req, req.headers),
+        // Use an appropriate agent for proxying if upstreamProxy is set
+        // Note: For simplicity, we are not implementing complex proxy agent logic here
+        // as the user's environment might vary.
+      });
+
+      const body = await response.arrayBuffer();
+      res.header(filterHeaders(req, response.headers.raw()));
+      res.status(response.status).send(Buffer.from(body));
+    } catch (error) {
+      console.error("Proxy error:", error);
+      res.status(500).send(error.message);
+    }
+  });
 
   const server = app.listen(
     argv.port,

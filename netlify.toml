@@ -5,23 +5,8 @@
 [[redirects]]
   from = "/"
   to = "/Apps/3DHeritageMapApp.html"
-  status = 200
+  status = 301
   force = true
-
-[[redirects]]
-  from = "/api/sags-uns"
-  to = "/.netlify/functions/sags-uns"
-  status = 200
-
-[[redirects]]
-  from = "/api/routes"
-  to = "/.netlify/functions/routes"
-  status = 200
-
-[[redirects]]
-  from = "/api/geocode"
-  to = "/.netlify/functions/geocode"
-  status = 200
 
 [[headers]]
   for = "/*.html"

@@ -7,7 +7,7 @@
 ## Primary App Paths
 - `Apps/3DHeritageMapApp.html` - HTML Entry
 - `Apps/3DHeritageScripts.js` - App Logik (Viewer, Daten, UI)
-- `Apps/GreenAtlas.css` - Styles
+- `Apps/3DHeritageStyles.css` - Styles
 - `Apps/Data/assets.json` - 3D Tiles Asset-Metadaten
 - `Apps/Data/denkmaeler.json` - lokale Denkmal-Daten (gross)
 
@@ -55,7 +55,7 @@ Du bist ein UX/UI Design Agent fuer Cesium3DHeritageMap. Ziel ist eine moderne, 
 1) Audit: Aktuelle UI evaluieren (Navigation, Panels, CTA, Information Density).
 2) Zielbild: Designrichtung + Prioritaeten (z.B. Kartenfokus, klare Layers, ruhige Controls).
 3) System: Design Tokens (Farben, Typo, Spacing), Komponenten, States.
-4) Umsetzung: Schrittweise Anpassungen in `Apps/3DHeritageMapApp.html` und `Apps/GreenAtlas.css`.
+4) Umsetzung: Schrittweise Anpassungen in `Apps/3DHeritageMapApp.html` und `Apps/3DHeritageStyles.css`.
 5) Review: UX-Checks, Performance, Responsivitaet, A11y.
 
 ## UX/UI Deliverables
